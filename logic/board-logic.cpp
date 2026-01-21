@@ -78,6 +78,31 @@ class Bishop : public Piece {
     }
 };
 
+class Queen : public Piece {
+    public:
+    Queen(std::string color) {
+        pieceColor = color;
+    }
+    std::vector<Coord> getMoves(std::shared_ptr<Piece> b[8][8], Coord piece) override {
+        std::vector<Coord> moves;
+        int xMoves[8] = {1, 1, -1, -1, 1, -1, 0, 0};
+        int yMoves[8] = {-1, 1, -1, 1, 0, 0, 1, -1};
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 8; ++j) {
+                int x = piece.x + (xMoves[i] * j);
+                int y = piece.y + (yMoves[i] * j);
+                if (x < 0 || x >= 8 || y < 0 || y >= 8) break;
+                if (b[x][y] == nullptr) moves.push_back(Coord{x, y});
+                else {
+                    if (b[x][y]->pieceColor != this->pieceColor) moves.push_back(Coord{x, y});
+                } 
+            }
+        }
+
+        return moves;
+    }
+};
+
 class Rook : public Piece {
     public:
     Rook(std::string color) {
@@ -110,8 +135,8 @@ class Knight : public Piece {
     }
     std::vector<Coord> getMoves(std::shared_ptr<Piece> b[8][8], Coord piece) override {
         std::vector<Coord> moves;
-        int xMove[] = {1, 1, -1, -1, 2, 2, -2, -2}; 
-        int yMove[] = {2, -2, 2, -2, 1, -1, -1, 1};
+        int xMove[8] = {1, 1, -1, -1, 2, 2, -2, -2}; 
+        int yMove[8] = {2, -2, 2, -2, 1, -1, -1, 1};
         for (int i = 0; i < 8; ++i) {
             int x = piece.x + xMove[i];
             int y = piece.y + yMove[i];
