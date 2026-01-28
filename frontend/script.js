@@ -31,16 +31,14 @@ async function createRoom() {
         const data = await response.json();
         setupGame(data.room, "white");
     } catch (err) {
-        // Mock fallback if server is down for testing
-        const mockCode = Math.random().toString(36).substring(2, 7).toUpperCase();
-        setupGame(mockCode, "white");
+        showStatus("⚠️ Server unreachable.");
     }
 }
 
 async function joinRoom() {
     const inputField = document.getElementById('join-input');
     const code = inputField.value.toUpperCase().trim(); // Added trim()
-    if (code.length < 3) return alert("Enter a valid code");
+    if (code.length < 3) return showStatus("Enter a valid code");
 
     console.log("Attempting to join room:", code);
 
@@ -54,7 +52,7 @@ async function joinRoom() {
         if (response.ok && data.status === "success") {
             await setupGame(code, data.side);
         } else {
-            alert(data.message || "Room is full or doesn't exist.");
+            showStatus(data.message || "Room is full or doesn't exist.");
         }
     } catch (err) {
         console.error("Join error:", err);
