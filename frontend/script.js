@@ -116,7 +116,7 @@ function detectAndAnimateOpponentMove(newBoard) {
             const oldPiece = gameState[r][c];
             const newPiece = newBoard[r][c];
 
-            // If a piece disappeared from here, it's the 'from'
+            // If a piece disappeared from here, it's the 'from'.
             if (oldPiece !== "" && newPiece === "") {
                 moveFound.from = [r, c];
             }
