@@ -25,12 +25,6 @@ public class Coordinate
     @Override
     public String toString()
     {
-        return "(" + x + "," + y + ")";
-    }   
-    public String toChessString()
-    {
-        if (x < 0 || x > 7 || y < 0 || y > 7) return "Coordinate out of bounds";
-        char[] xChar = {'A','B','C','D','E','F','G','H'};
-        return xChar[x] + "" + (y + 1);
+        return x + "" + y;
     }
 }

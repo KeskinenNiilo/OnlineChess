@@ -34,7 +34,6 @@ public class Rook extends Piece
     @Override
     public Rook copy()
     {
-        Rook copied = new Rook(this.color);
-        return copied;
+        return new Rook(this.color);
     }
 }

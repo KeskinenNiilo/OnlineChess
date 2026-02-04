@@ -25,7 +25,6 @@ public class King extends Piece
     @Override
     public King copy()
     {
-        King copied = new King(this.color);
-        return copied;
+        return new King(this.color);
     }
 }

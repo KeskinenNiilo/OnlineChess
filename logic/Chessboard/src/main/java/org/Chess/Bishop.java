@@ -34,7 +34,6 @@ public class Bishop extends Piece
     @Override
     public Bishop copy()
     {
-        Bishop copied = new Bishop(this.color);
-        return copied;
+        return new Bishop(this.color);
     }
 }

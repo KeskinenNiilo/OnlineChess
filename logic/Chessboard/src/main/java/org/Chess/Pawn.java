@@ -51,7 +51,6 @@ public class Pawn extends Piece
     @Override
     public Pawn copy()
     {
-        Pawn copied = new Pawn(this.color);
-        return copied;
+        return new Pawn(this.color);
     }
 }

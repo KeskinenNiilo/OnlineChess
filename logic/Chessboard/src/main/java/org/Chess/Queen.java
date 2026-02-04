@@ -11,8 +11,8 @@ public class Queen extends Piece
     public ArrayList<Coordinate> getMoves(Piece[][] board, Coordinate pieceCoordinate)
     {
         ArrayList<Coordinate> moves = new ArrayList<>();
-        int xMoves[] = {1, 1, -1, -1, 1, -1, 0, 0};
-        int yMoves[] = {-1, 1, -1, 1, 0, 0, 1, -1};
+        int[] xMoves = {1, 1, -1, -1, 1, -1, 0, 0};
+        int[] yMoves = {-1, 1, -1, 1, 0, 0, 1, -1};
         for (int i = 0; i < 8; ++i)
         {
             for (int j = 1; j < 8; ++j)
@@ -33,7 +33,6 @@ public class Queen extends Piece
     @Override
     public Queen copy()
     {
-        Queen copied = new Queen(this.color);
-        return copied;
+        return new Queen(this.color);
     }
 }

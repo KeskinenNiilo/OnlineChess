@@ -26,7 +26,6 @@ public class Knight extends Piece
     @Override
     public Knight copy()
     {
-        Knight copied = new Knight(this.color);
-        return copied;
+        return new Knight(this.color);
     }
 }
