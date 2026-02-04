@@ -1,4 +1,4 @@
-package app.chessboard;
+package org.Chess;
 
 import java.util.ArrayList;
 

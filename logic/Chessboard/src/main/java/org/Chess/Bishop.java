@@ -1,10 +1,10 @@
-package org.example;
+package org.Chess;
 
 import java.util.ArrayList;
 
-public class Rook extends Piece
+public class Bishop extends Piece
 {
-    public Rook(String colorI)
+    public Bishop(String colorI)
     {
         color = colorI;
     }
@@ -12,8 +12,8 @@ public class Rook extends Piece
     public ArrayList<Coordinate> getMoves(Piece[][] board, Coordinate pieceCoordinate)
     {
         ArrayList<Coordinate> moves = new ArrayList<>();
-        int[] xMove = {1, -1, 0, 0};
-        int[] yMove = {0, 0, 1, -1};
+        int[] xMove = {1, -1, 1, -1};
+        int[] yMove = {1, 1, -1, -1};
         for (int i = 0; i < 4; ++i)
         {
             for (int j = 1; j < 8; ++j)
@@ -32,9 +32,9 @@ public class Rook extends Piece
         return moves;
     }
     @Override
-    public Rook copy()
+    public Bishop copy()
     {
-        Rook copied = new Rook(this.color);
+        Bishop copied = new Bishop(this.color);
         return copied;
     }
 }

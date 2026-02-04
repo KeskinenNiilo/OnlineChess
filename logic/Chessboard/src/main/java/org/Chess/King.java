@@ -1,10 +1,10 @@
-package app.chessboard;
+package org.Chess;
 
 import java.util.ArrayList;
 
-public class Knight extends Piece
+public class King extends Piece
 {
-    public Knight(String colorI)
+    public King(String colorI)
     {
         color = colorI;
     }
@@ -12,21 +12,20 @@ public class Knight extends Piece
     public ArrayList<Coordinate> getMoves(Piece[][] board, Coordinate pieceCoordinate)
     {
         ArrayList<Coordinate> moves = new ArrayList<>();
-        int[] xMove = {1, 1, -1, -1, 2, 2, -2, -2};
-        int[] yMove = {2, -2, 2, -2, 1, -1, 1, -1};
+        int[] xMove = {1, 1, 1, -1, -1, -1, 0, 0};
+        int[] yMove = {1, -1, 0, 1, -1, 0, 1, -1};
         for (int i = 0; i < 8; ++i)
         {
             int x = pieceCoordinate.x + xMove[i];
             int y = pieceCoordinate.y + yMove[i];
-            if ((x >= 0 && x < 8 && y >= 0 && y < 8) && (board[x][y] == null || !board[x][y].color.equals(color)))
-               moves.add(new Coordinate(x, y));
+            if (board[x][y] == null || !board[x][y].color.equals(color)) moves.add(new Coordinate(x, y));
         }
         return moves;
     }
     @Override
-    public Knight copy()
+    public King copy()
     {
-        Knight copied = new Knight(this.color);
+        King copied = new King(this.color);
         return copied;
     }
 }
