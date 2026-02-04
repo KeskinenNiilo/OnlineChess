@@ -6,6 +6,19 @@ const board = document.getElementById("chessboard");
 let selectedSquare = null;
 let pieceElements = new Map(); // Stores { "row-col": DOMElement }
 
+const API_URL = "http://localhost:8080/api";
+
+const PIECE_MAP = {
+    "white_king": "♔", "white_queen": "♕", "white_rook": "♖",
+    "white_bishop": "♗", "white_knight": "♘", "white_pawn": "♙",
+    "black_king": "♚", "black_queen": "♛", "black_rook": "♜",
+    "black_bishop": "♝", "black_knight": "♞", "black_pawn": "♟",
+    "empty": ""
+};
+
+const whitePieces = ["white_pawn", "white_rook", "white_knight", "white_bishop", "white_queen", "white_king"];
+const blackPieces = ["black_pawn", "black_rook", "black_knight", "black_bishop", "black_queen", "black_king"];
+
 // The "Source of Truth"
 let gameState = [
     ["♜","♞","♝","♛","♚","♝","♞","♜"],
@@ -18,8 +31,8 @@ let gameState = [
     ["♖","♘","♗","♕","♔","♗","♘","♖"]
 ];
 
-const whitePieces = ["♙", "♖", "♘", "♗", "♕", "♔"];
-const blackPieces = ["♟", "♜", "♞", "♝", "♛", "♚"];
+//const whitePieces = ["♙", "♖", "♘", "♗", "♕", "♔"];
+//const blackPieces = ["♟", "♜", "♞", "♝", "♛", "♚"];
 
 let currentRoom = null;
 let playerSide = "white"; 
@@ -27,7 +40,7 @@ let currentTurn = "white";
 
 async function createRoom() {
     try {
-        const response = await fetch('http://127.0.0.1:5000/create', { method: 'POST' });
+        const response = await fetch(`${API_URL}/create`, { method: 'POST' });
         const data = await response.json();
         setupGame(data.room, "white");
     } catch (err) {
@@ -43,7 +56,7 @@ async function joinRoom() {
     console.log("Attempting to join room:", code);
 
     try {
-        const response = await fetch(`http://127.0.0.1:5000/join?room=${code}`, { 
+        const response = await fetch(`${API_URL}/join?room=${code}`, { 
             method: 'POST' 
         });
         
@@ -66,7 +79,7 @@ async function setupGame(roomCode, side) {
 
     // 1. Get the LATEST state from the server before showing the board
     try {
-        const response = await fetch(`http://127.0.0.1:5000/state?room=${roomCode}`);
+        const response = await fetch(`${API_URL}/state?room=${roomCode}`);
         const data = await response.json();
         
         if (data && data.board) {
@@ -96,7 +109,7 @@ async function pollServer() {
 
     try {
         // Added room query parameter
-        const response = await fetch(`http://127.0.0.1:5000/state?room=${currentRoom}`);
+        const response = await fetch(`${API_URL}/state?room=${currentRoom}`);
         const data = await response.json();
         
         if (data.turn === playerSide) {
@@ -116,16 +129,14 @@ function detectAndAnimateOpponentMove(newBoard) {
             const oldPiece = gameState[r][c];
             const newPiece = newBoard[r][c];
 
+            if (oldPiece == newPiece) continue;
+
             // If a piece disappeared from here, it's the 'from'.
-            if (oldPiece !== "" && newPiece === "") {
+            if (oldPiece !== "empty" && oldPiece !== "" && (newPiece === "empty" ||  newPiece === "")) {
                 moveFound.from = [r, c];
             }
-            // If a piece appeared here (and it wasn't there before), it's the 'to'
-            if (oldPiece === "" && newPiece !== "") {
-                moveFound.to = [r, c];
-            }
-            // Logic for a piece moving onto another piece (Capture)
-            if (oldPiece !== "" && newPiece !== "" && oldPiece !== newPiece) {
+
+            if(newPiece !== "empty" && newPiece !== "") {
                 moveFound.to = [r, c];
             }
         }
@@ -163,19 +174,22 @@ function createBoard() {
             square.addEventListener("click", () => handleSquareClick(row, col));
             board.appendChild(square);
 
+            const javaPieceName = gameState[row][col];
+            const unicodeSymbol = PIECE_MAP[javaPieceName] || "";
             // Create Piece if it exists in gameState
-            const pieceType = gameState[row][col];
-            if (pieceType) {
-                createPieceElement(row, col, pieceType);
+            //const pieceType = gameState[row][col];
+            if (unicodeSymbol) {
+                createPieceElement(row, col,unicodeSymbol, javaPieceName);
             }
         }
     }
 }
 
-function createPieceElement(row, col, type) {
+function createPieceElement(row, col, unicode, javaName) {
     const piece = document.createElement("div");
     piece.classList.add("piece");
-    piece.textContent = type;
+    piece.textContent = unicode;
+    piece.dataset.javaName = javaName;
     
     // Store current coordinates on the element
     piece.dataset.row = row;
@@ -199,6 +213,14 @@ async function handlePieceClick(row, col) {
     const piece = gameState[row][col];
     const pieceColor = whitePieces.includes(piece) ? "white" : (blackPieces.includes(piece) ? "black" : null);
 
+    // New capture logic
+    const targetSquare = board.querySelector(`.square[data-row='${row}'][data-col='${col}']`);
+    if (selectedSquare && targetSquare.classList.contains("highlight")) {
+        await executeMove(selectedSquare.row, selectedSquare.col, row, col);
+        return; // Exit early so we don't try to "re-select" the enemy piece
+    }
+
+
     if(currentTurn !== playerSide) {
         showStatus("It's not your turn!");
         return;
@@ -221,15 +243,16 @@ async function handlePieceClick(row, col) {
     const timeoutId = setTimeout(() => controller.abort(), 500); // 500ms limit
 
     try {
-        // Fetch from your Python mock server
-        const response = await fetch(`http://127.0.0.1:5000/moves?row=${row}&col=${col}&room=${currentRoom}`, {
-            signal: controller.signal
-    });
+        const url = `${API_URL}/moves?room=${currentRoom}&x=${row}&y=${col}`;
+        const response = await fetch(url);
         const data = await response.json();
 
         hideStatus();
 
-        if (data.moves) highlightSquares(data.moves);
+        if (data && Array.isArray(data)) {
+            highlightSquares(data);
+        }
+
 
         clearTimeout(timeoutId);
     } catch (err) {
@@ -271,7 +294,7 @@ async function handleSquareClick(toRow, toCol) {
 
 async function executeMove(fromRow, fromCol, toRow, toCol) {
     try {
-        const response = await fetch('http://127.0.0.1:5000/move', {
+        const response = await fetch(`${API_URL}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({room: currentRoom,
@@ -346,7 +369,7 @@ function clearHighlights() {
 
 window.addEventListener('beforeunload', () => {
     if (currentRoom && playerSide) {
-        const url = `http://127.0.0.1:5000/leave?room=${currentRoom}&side=${playerSide}`;
+        const url = `${API_URL}/leave?room=${currentRoom}&side=${playerSide}`;
         
         // 'keepalive: true' allows the request to outlive the page
         fetch(url, { 

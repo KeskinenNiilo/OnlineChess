@@ -1,0 +1,12 @@
+app/chessboard/Queen.class
+app/chessboard/King.class
+app/chessboard/Knight.class
+app/chessboard/Pawn.class
+app/chessboard/Piece.class
+logic/ChessController.class
+logic/ChessApplication.class
+app/chessboard/Coordinate.class
+logic/MoveRequest.class
+app/chessboard/Chessboard.class
+app/chessboard/Bishop.class
+app/chessboard/Rook.class
