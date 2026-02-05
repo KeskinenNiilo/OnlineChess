@@ -238,5 +238,10 @@ public class Chessboard
         }
         return tempString;
     }
+
+    public void changeTurn()
+    {
+        turn = (turn.equals("white")) ? "black" : "white";
+    }
 }
 
