@@ -12,7 +12,7 @@ public class ChessMainLoop {
     public boolean staleMate;
     public boolean gameRunning;
 
-    public boolean chessMainLoop()
+    public boolean chessLoop()
     {
         boolean validMove = false;
         int nonValidMoves = 0;
@@ -68,7 +68,7 @@ public class ChessMainLoop {
         startGame();
         while (gameRunning)
         {
-            gameRunning = chessMainLoop();
+            gameRunning = chessLoop();
         }
         gameEnd();
     }
