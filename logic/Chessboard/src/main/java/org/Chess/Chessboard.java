@@ -49,18 +49,18 @@ public class Chessboard
         error = false;
     }
     
-    public boolean check(Coordinate kingC, King kingP) { // check if given king is in check
+    public boolean check(Coordinate kingCoordinate, String kingColor) { // check if given king is in check
         int[][] directions = {{1,1}, {1,-1}, {-1,1}, {-1,-1}, {1,0}, {-1,0}, {0,1}, {0,-1}};
 
         for (int i = 0; i < 8; i++) {
             for (int j = 1; j < 8; j++) {
-                int x = kingC.x + (directions[i][0] * j);
-                int y = kingC.y + (directions[i][1] * j);
+                int x = kingCoordinate.x + (directions[i][0] * j);
+                int y = kingCoordinate.y + (directions[i][1] * j);
 
                 if (x < 0 || x >= 8 || y < 0 || y >= 8) break; 
 
                 if (board[x][y] != null) {
-                    if (!board[x][y].color.equals(kingP.color)) {
+                    if (!board[x][y].color.equals(kingColor)) {
                         Piece type = board[x][y];
                         if (j == 1 && type instanceof King) return true;
                         if (i < 4) {
@@ -76,22 +76,22 @@ public class Chessboard
 
         int[][] knightMoves = {{2,1}, {2,-1}, {-2,1}, {-2,-1}, {1,2}, {1,-2}, {-1,2}, {-1,-2}};
         for (int[] m : knightMoves) {
-            int x = kingC.x + m[0];
-            int y = kingC.y + m[1];
+            int x = kingCoordinate.x + m[0];
+            int y = kingCoordinate.y + m[1];
             if (x >= 0 && x < 8 && y >= 0 && y < 8) {
                 Piece p = board[x][y];
-                if (p != null && p instanceof Knight && !p.color.equals(kingP.color)) return true;
+                if (p != null && p instanceof Knight && !p.color.equals(kingColor)) return true;
             }
         }
 
-        int pawnY = kingP.color.equals("white") ? 1 : -1; 
+        int pawnY = kingColor.equals("white") ? 1 : -1;
         int[] pawnX = {1, -1};
         for (int dx : pawnX) {
-            int x = kingC.x + dx;
-            int y = kingC.y + pawnY;
+            int x = kingCoordinate.x + dx;
+            int y = kingCoordinate.y + pawnY;
             if (x >= 0 && x < 8 && y >= 0 && y < 8) {
                 Piece p = board[x][y];
-                if (p != null && p instanceof Pawn && !p.color.equals(kingP.color)) return true;
+                if (p != null && p instanceof Pawn && !p.color.equals(kingColor)) return true;
             }
         }
 
@@ -116,7 +116,7 @@ public class Chessboard
         return moveMap;
     }
     
-    public void move(Coordinate piece, Coordinate target) { // hard move, only use for final moves
+    public void move(Coordinate piece, Coordinate target, Class<? extends Piece> promotionClass) { // hard move, only use for final moves
         if (board[target.x][target.y] != null)
         {
             if (board[target.x][target.y].color.equals("white")) blackCaptured.add(board[target.x][target.y]);
@@ -124,7 +124,7 @@ public class Chessboard
         }
         board[target.x][target.y] = board[piece.x][piece.y];
         board[piece.x][piece.y] = null;
-        if (checkPromotion(target)) promote(target);
+        if (checkPromotion(target)) promote(target, promotionClass);
     }
     
     public Piece virtualMove(Coordinate piece, Coordinate target) { // helper functions for move checking
@@ -147,9 +147,19 @@ public class Chessboard
         return (piece.y == promotionY);
     }
     
-    public void promote(Coordinate pawn) 
+    public void promote(Coordinate pawn, Class<? extends Piece> pieceClass)
     {
-        board[pawn.x][pawn.y] = new Queen(board[pawn.x][pawn.y].color);
+        String color = board[pawn.x][pawn.y].color;
+        try
+        {
+            Piece newPiece = pieceClass.getConstructor(color.getClass()).newInstance(color);
+            board[pawn.x][pawn.y] = newPiece;
+        }
+        catch (Exception e)
+        {
+            board[pawn.x][pawn.y] = new Queen(color);
+        }
+
     }
     
     public Chessboard copyChessboard() // deep copy of chessboard for checking checks
@@ -201,8 +211,7 @@ public class Chessboard
             {   
                 Piece captured = virtual.virtualMove(p, m);
                 Coordinate kingCoord = virtual.findKing(pieceColor);
-                King k = (King) virtual.board[kingCoord.x][kingCoord.y];
-                if (!virtual.check(kingCoord, k)) tempValidMoves.add(m);
+                if (!virtual.check(kingCoord, board[kingCoord.x][kingCoord.y].color)) tempValidMoves.add(m);
                 virtualUndoMove(p, m, captured);
             }
             if (!tempValidMoves.isEmpty())

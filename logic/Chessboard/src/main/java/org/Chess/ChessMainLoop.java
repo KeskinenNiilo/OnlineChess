@@ -29,10 +29,11 @@ public class ChessMainLoop {
             // if (nonValidMoves > some amount) end game
             // if (!validMove), get return an error to client and get a new move
         }
-        mainBoard.move(movePiece, moveTarget); // move in chessboard
-        if (mainBoard.checkPromotion(moveTarget)) mainBoard.promote(moveTarget);
+        // get the promotion piece type from UI and make it a class instance
+        var promotionclass = Queen.class;
+        mainBoard.move(movePiece, moveTarget, promotionclass); // move in chessboard, last parameter is the promotion piece
         mainBoard.changeTurn();
-        check = mainBoard.check(mainBoard.findKing(mainBoard.turn), new King(mainBoard.turn)); // check if king is in check
+        check = mainBoard.check(mainBoard.findKing(mainBoard.turn), mainBoard.turn); // check if king is in check
         currentMovesBuffer = mainBoard.getColorMoves(mainBoard.turn);
         if (check && currentMovesBuffer.isEmpty())
         {
@@ -44,6 +45,7 @@ public class ChessMainLoop {
             staleMate = true;
             return false;
         }
+        // send currentMovesBuffer to player
         return true;
     }
 
