@@ -1,7 +1,5 @@
 package org.Chess;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.util.HashMap;
 
 public class Moves {
@@ -15,7 +13,7 @@ public class Moves {
     public static final int[] PAWN_CAPTURE = {7, 9};
 
     // copy buffer array into the right size of array, return -1 if array is empty
-    public static int[] finishMoves(@NotNull int[] buffer, int count) {
+    public static int[] finishMoves(int[] buffer, int count) {
         if (count == 0) return new int[]{-1};
         int[] result = new int[count];
         System.arraycopy(buffer, 0, result, 0, count);
@@ -23,8 +21,8 @@ public class Moves {
     }
 
     // slide movement method for queen, rook, bishop
-    private static int slide(@NotNull int[] board, int startIdx, int piece, @NotNull int[] directions, int max,
-                             @NotNull int[] buffer, int bufferIdx) {
+    private static int slide(int[] board, int startIdx, int piece, int[] directions, int max,
+                             int[] buffer, int bufferIdx) {
         int startFile = startIdx % 8; // check file
         int startRank = startIdx / 8; // and rank integrity
 
@@ -54,7 +52,7 @@ public class Moves {
     }
 
     // moves for pawn, this is longer because pawn has so many different edge cases
-    public static int[] PawnMoves(@NotNull int[] board, int pawnIdx) {
+    public static int[] PawnMoves(int[] board, int pawnIdx, int lastMoveOriginIdx, int lastMoveTargetIdx) {
         int[] movesBuffer = new int[4]; // movesBuffer.length -> all possible moves
         int movesBufferIdx = 0; // track index to insert into array
         int piece = board[pawnIdx]; // int value of piece
@@ -86,10 +84,20 @@ public class Moves {
                 }
             }
         }
+
+        int epSquare = Methods.enPassant(board, lastMoveOriginIdx, lastMoveTargetIdx); // check for en passant square
+        if (epSquare != -1) {
+            for (int offset : PAWN_CAPTURE) {
+                int targetIdx = pawnIdx + (moveDir * offset);
+                if (targetIdx == epSquare && Math.abs((targetIdx % 8) - file) == 1) {
+                    movesBuffer[movesBufferIdx++] = targetIdx;
+                }
+            }
+        }
         return finishMoves(movesBuffer, movesBufferIdx); // return an array of correct size
     }
 
-    public static int[] KnightMoves(@NotNull int[] board, int knightIdx) {
+    public static int[] KnightMoves(int[] board, int knightIdx) {
         int[] movesBuffer = new int[8];
         int movesBufferIdx = 0;
         int piece = board[knightIdx];
@@ -110,7 +118,7 @@ public class Moves {
         return finishMoves(movesBuffer, movesBufferIdx);
     }
 
-    public static int[] BishopMoves(@NotNull int[] board, int bishopIdx) {
+    public static int[] BishopMoves(int[] board, int bishopIdx) {
         int[] movesBuffer = new int[13];
         int movesBufferIdx = 0;
         int piece = board[bishopIdx];
@@ -118,7 +126,7 @@ public class Moves {
         return finishMoves(movesBuffer, movesBufferIdx);
     }
 
-    public static int[] RookMoves(@NotNull int[] board, int rookIdx) {
+    public static int[] RookMoves(int[] board, int rookIdx) {
         int[] movesBuffer = new int[14];
         int movesBufferIdx = 0;
         int piece = board[rookIdx];
@@ -126,7 +134,7 @@ public class Moves {
         return finishMoves(movesBuffer, movesBufferIdx);
     }
 
-    public static int[] QueenMoves(@NotNull int[] board, int queenIdx) {
+    public static int[] QueenMoves(int[] board, int queenIdx) {
         int[] movesBuffer = new int[27];
         int movesBufferIdx = 0;
         int piece = board[queenIdx];
@@ -134,7 +142,7 @@ public class Moves {
         return finishMoves(movesBuffer, movesBufferIdx);
     }
 
-    public static int[] KingMoves(@NotNull int[] board, int kingIdx) {
+    public static int[] KingMoves(int[] board, int kingIdx) {
         int[] movesBuffer = new int[8];
         int movesBufferIdx = 0;
         int piece = board[kingIdx];
@@ -154,21 +162,40 @@ public class Moves {
         return finishMoves(movesBuffer, movesBufferIdx);
     }
 
-    public static int move(@NotNull int[] board, int pieceIdx, int targetIdx) { // move method to validate moves, returns the captured piece
+    public static int move(int[] board, int pieceIdx, int targetIdx) { // move method to validate moves, returns the captured piece
         int piece = board[pieceIdx];
-        int target = board[targetIdx];
+        int capturedPiece = board[targetIdx];
+
+        if ((piece & Methods.TYPE_MASK) == Methods.PAWN && capturedPiece == 0) { // en passant edge case
+            int fileDiff = Math.abs((targetIdx % 8) - (pieceIdx % 8));
+            if (fileDiff != 0) {
+                int victimIdx = (targetIdx / 8 == 5) ? targetIdx - 8 : targetIdx + 8;
+                capturedPiece = board[victimIdx];
+                board[victimIdx] = 0;
+            }
+        }
+
         board[targetIdx] = piece;
         board[pieceIdx] = 0;
-        return target; // return captured piece
+        return capturedPiece; // return captured piece
     }
 
-    public static void undoMove(@NotNull int[] board, int pieceIdx, int targetIdx, int target) { // undo the move
+    public static void undoMove(int[] board, int pieceIdx, int targetIdx, int capturedPiece) { // undo the move
         int piece = board[targetIdx];
-        board[pieceIdx] = piece; // insert pieces back to original spots
-        board[targetIdx] = target;
+        board[pieceIdx] = piece;
+        board[targetIdx] = 0; // put empty in square
+        if ((piece & Methods.TYPE_MASK) == Methods.PAWN && capturedPiece != 0) { // en passant edgecase
+            int fileDiff = Math.abs((targetIdx % 8) - (pieceIdx % 8));
+            if (fileDiff != 0) {
+                int victimIdx = (targetIdx / 8 == 5) ? targetIdx - 8 : targetIdx + 8;
+                board[victimIdx] = capturedPiece;
+                return;
+            }
+        }
+        board[targetIdx] = capturedPiece; // normal capture
     }
 
-    public static boolean checkAfterMove(@NotNull int[] board, int pieceIdx, int targetIdx, int colorMask) { // check if move puts own king in check
+    public static boolean checkAfterMove(int[] board, int pieceIdx, int targetIdx, int colorMask) { // check if move puts own king in check
         int target = move(board, pieceIdx, targetIdx);
         int kingIdx = Methods.findKing(board, colorMask); // find king since its possible king may have moved place
         boolean check = Methods.inCheck(board, kingIdx);
@@ -176,14 +203,14 @@ public class Moves {
         return check;
     }
 
-    public static HashMap<Integer, int[]> allColorMoves(@NotNull int[] board, int colorMask) { // get all possible moves by color
+    public static HashMap<Integer, int[]> allColorMoves(int[] board, int colorMask, int lastMoveOriginIdx, int lastMoveTargetIdx) { // get all possible moves by color
         HashMap<Integer, int[]> moves = new HashMap<>();
         for (int i = 0; i < 64; ++i) {
             int piece = board[i];
             if (piece == 0 || (piece & Methods.COLOR_MASK) != colorMask)
                 continue; // check if piece is not 0 and is the right color
             int[] possibleMoves = switch (piece & Methods.TYPE_MASK) {
-                case Methods.PAWN -> Moves.PawnMoves(board, i);
+                case Methods.PAWN -> Moves.PawnMoves(board, i, lastMoveOriginIdx, lastMoveTargetIdx);
                 case Methods.KNIGHT -> Moves.KnightMoves(board, i);
                 case Methods.ROOK -> Moves.RookMoves(board, i);
                 case Methods.BISHOP -> Moves.BishopMoves(board, i);
@@ -196,7 +223,7 @@ public class Moves {
         return moves;
     }
 
-    public static HashMap<Integer, int[]> validateAllColorMoves(@NotNull int[] board, @NotNull HashMap<Integer, int[]> moves, int colorMask) { // return a new hashmap of valid moves
+    public static HashMap<Integer, int[]> validateAllColorMoves(int[] board, HashMap<Integer, int[]> moves, int colorMask) { // return a new hashmap of valid moves
         HashMap<Integer, int[]> validMoves = new HashMap<>();
         for (int pieceIdx : moves.keySet()) { // validate all moves for piece
             if (moves.get(pieceIdx).length == 1 && moves.get(pieceIdx)[0] == -1) continue;

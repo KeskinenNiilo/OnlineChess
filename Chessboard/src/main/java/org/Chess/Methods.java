@@ -2,8 +2,6 @@ package org.Chess;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
-
 public class Methods {
     public static final int TYPE_MASK = 0b00000111; // piece bits
     public static final int COLOR_MASK = 0b10000000; // 128 -> if bit, piece black
@@ -16,11 +14,11 @@ public class Methods {
     public static final int QUEEN = 5;
     public static final int KING = 6;
 
-    public static boolean inCheck(@NotNull int[] board, int kingIdx) { // check if in check
+    public static boolean inCheck(int[] board, int kingIdx) { // check if in check
         return isSquareAttacked(board, kingIdx, board[kingIdx] & COLOR_MASK);
     }
 
-    public static boolean isSquareAttacked(@NotNull int[] board, int targetIdx, int colorMask) {
+    public static boolean isSquareAttacked(int[] board, int targetIdx, int colorMask) {
         int targetFile = targetIdx % 8;
         int targetRow = targetIdx / 8;
         int oppMask = (colorMask == WHITE_MASK) ? BLACK_MASK : WHITE_MASK;
@@ -103,19 +101,28 @@ public class Methods {
 
     public static int findKing(int[] board, int colorMask) { // find king
         if (colorMask == COLOR_MASK) { // if king black
-            for (int i = 63; i >= 0; --i) if ((board[i] & COLOR_MASK) == colorMask && (board[i] & TYPE_MASK) == KING) return i;
+            for (int i = 63; i >= 0; --i)
+                if ((board[i] & COLOR_MASK) == colorMask && (board[i] & TYPE_MASK) == KING) return i;
         } else {
-            for (int i = 0; i < 64; ++i) if ((board[i] & COLOR_MASK) == colorMask && (board[i] & TYPE_MASK) == KING) return i;
+            for (int i = 0; i < 64; ++i)
+                if ((board[i] & COLOR_MASK) == colorMask && (board[i] & TYPE_MASK) == KING) return i;
         }
         return -1;
     }
 
-    public static boolean checkPromotion(@NotNull int[] board, int targetIdx) { // check promotion from last move
+    public static boolean checkPromotion(int[] board, int targetIdx) { // check promotion from last move
         return ((targetIdx >= 56 && targetIdx < 64 && (board[targetIdx] & TYPE_MASK) == PAWN && (board[targetIdx] & COLOR_MASK) == WHITE_MASK)
                 || (targetIdx >= 0 && targetIdx < 8 && (board[targetIdx] & TYPE_MASK) == PAWN && (board[targetIdx] & COLOR_MASK) == BLACK_MASK));
     }
 
-    public static void promote(@NotNull int[] board, int targetIdx, int promotePiece) { // promote
+    public static void promote(int[] board, int targetIdx, int promotePiece) { // promote
         if (checkPromotion(board, targetIdx)) board[targetIdx] = (board[targetIdx] & COLOR_MASK) | promotePiece;
+    }
+
+    public static int enPassant(int[] board, int lastMoveOriginIdx, int lastMoveTargetIdx) {
+        int victimPiece = board[lastMoveTargetIdx];
+        if ((victimPiece & TYPE_MASK) != PAWN) return -1;
+        if (Math.abs(lastMoveTargetIdx - lastMoveOriginIdx) != 16) return -1;
+        return (lastMoveOriginIdx + lastMoveTargetIdx) / 2;
     }
 }

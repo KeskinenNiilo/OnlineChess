@@ -8,7 +8,8 @@ public class MainLoop {
     public boolean checkMate;
     public boolean staleMate;
     public HashMap<Integer, int[]> validMovesBuffer;
-    public HashMap<Integer, Integer> lastMove;
+    public int lastMoveOrigin;
+    public int lastMoveTarget;
 
 
     public int[] errorLoop() { // get a correct move and return in form [origin, target]
@@ -20,7 +21,9 @@ public class MainLoop {
         mainBoard = new Board();
         checkMate = false;
         staleMate = false;
-        HashMap<Integer, int[]> rawMoves = Moves.allColorMoves(mainBoard.boardState, mainBoard.turnMask);
+        lastMoveOrigin = -1;
+        lastMoveTarget = -1;
+        HashMap<Integer, int[]> rawMoves = Moves.allColorMoves(mainBoard.boardState, mainBoard.turnMask, lastMoveOrigin, lastMoveTarget);
         validMovesBuffer = Moves.validateAllColorMoves(mainBoard.boardState, rawMoves, mainBoard.turnMask);
         // convert and send valid moves to white
     }
@@ -34,12 +37,13 @@ public class MainLoop {
             moveOrigin = validMoves[0];
             moveTarget = validMoves[1];
         }
-        lastMove = (HashMap<Integer, Integer>) new HashMap<>().put(moveOrigin, moveTarget); // save last move
+        lastMoveOrigin = moveOrigin;
+        lastMoveTarget = moveTarget;
         Moves.move(mainBoard.boardState, moveOrigin, moveTarget); // move in board
         Methods.promote(mainBoard.boardState, moveTarget, Methods.QUEEN); // replace Methods.QUEEN with piece int got from frontend
         mainBoard.changeTurnMask(); // change turn
         boolean check = Methods.inCheck(mainBoard.boardState, Methods.findKing(mainBoard.boardState, mainBoard.turnMask)); // check for check
-        HashMap<Integer, int[]> rawMoves = Moves.allColorMoves(mainBoard.boardState, mainBoard.turnMask);
+        HashMap<Integer, int[]> rawMoves = Moves.allColorMoves(mainBoard.boardState, mainBoard.turnMask, lastMoveOrigin, lastMoveTarget);
         validMovesBuffer = Moves.validateAllColorMoves(mainBoard.boardState, rawMoves, mainBoard.turnMask); // uudet movet
         if (check && validMovesBuffer.isEmpty()) {
             checkMate = true;
