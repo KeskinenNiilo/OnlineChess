@@ -8,6 +8,13 @@
     <artifactId>Chessboard</artifactId>
     <version>1.0-SNAPSHOT</version>
 
+<!---springboot parent--->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.2</version>
+    </parent>
+
     <properties>
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
@@ -31,5 +38,28 @@
             <artifactId>slf4j-simple</artifactId>
             <version>2.0.12</version>
         </dependency>
+
+        <!--- springboot --->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!--- bucket4j (ratelimit) --->
+        <dependency>
+            <groupId>com.github.vladimir-bukhtoyarov</groupId>
+            <artifactId>bucket4j-core</artifactId>
+            <version>7.6.0</version>
+        </dependency>
     </dependencies>
+
+    <!--- build stuff for springboot --->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>
