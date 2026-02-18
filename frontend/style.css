@@ -100,20 +100,23 @@ h1 {
 }
 
 #lobby-display {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 1000;
     background: #2c313a;
-    padding: 8px 15px;
+    padding: 10px 15px;
     border-radius: 8px;
     color: #61afef;
-    font-family: 'Courier New', Courier, monospace;
+    font-family: 'Courier New', monospace;
     font-weight: bold;
     border: 2px solid #61afef;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    white-space: nowrap;
+    text-align: center;
+    width: 100%;              /* match scoreboard width */
+    box-sizing: border-box;   /* prevents overflow */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
 }
+
 
 .spacer {
     width: 150px;
@@ -199,4 +202,94 @@ h1 {
     /* Using a background color or a circle is often cleaner than an outline for animations */
     background-color: rgba(0, 0, 0, 0.15) !important;
     box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.5);
+}
+
+
+
+.board-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#scoreboard-box {
+    background: #2c3e50;
+    border: 3px solid #34495e;
+    border-radius: 10px;
+    padding: 20px;
+    width: 280px;
+    color: white;
+    font-family: 'Courier New', monospace;
+}
+
+.scoreboard-header {
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+    color: #f1c40f;
+    margin-bottom: 15px;
+}
+
+.scoreboard-content {
+    background: #34495e;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.player-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    margin: 5px 0;
+    border-radius: 5px;
+}
+
+.white-stats {
+    background: rgba(255,255,255,0.15);
+    border-left: 6px solid white;
+}
+
+.black-stats {
+    background: rgba(0,0,0,0.3);
+    border-left: 6px solid #95a5a6;
+}
+
+.draw-btn,
+.forfeit-btn {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+}
+
+.draw-btn { background: #f39c12; color: white; }
+.forfeit-btn { background: #ebebeb; color: black; }
+
+.draw-btn:hover,
+.forfeit-btn:hover {
+    transform: translateY(-2px);
+}
+
+.game-container {
+    display: flex;
+    gap: 60px;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 280px;   /* SAME as scoreboard */
+}
+
+@media (max-width: 900px) {
+    .game-container {
+        flex-direction: column;
+        align-items: center;
+    }
 }

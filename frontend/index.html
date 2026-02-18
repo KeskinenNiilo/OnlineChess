@@ -7,6 +7,7 @@
 </head>
 <body>
 
+    <!-- LANDING PAGE -->
     <div id="landing-page">
         <h1 class="game-title">Nettishakki</h1><br>
         <div class="menu-box">
@@ -19,17 +20,66 @@
         </div>
     </div>
 
+    <!-- GAME SCREEN -->
     <div id="game-screen" style="display: none;">
-        
+
         <div id="top-bar">
             <h1 class="game-title">Nettishakki</h1>
-            <div id="lobby-display">Code: <span id="code-text">----</span></div>
         </div>
-        
-        <div id="chessboard">
+
+        <div class="game-container">
+
+            <!-- LEFT SIDE -->
+            <div class="board-section">
+                <div id="chessboard"></div>
+                <div id="turn-indicator"></div>
             </div>
-        <div id="turn-indicator"></div>
-    </div>
+
+            <!-- RIGHT SIDE -->
+            <div class="side-panel">
+
+                <!-- ROOM CODE (now above scoreboard) -->
+                <div id="lobby-display">
+                    Code: <span id="code-text">----</span>
+                </div>
+
+                <!-- SCOREBOARD -->
+                <div id="scoreboard-box">
+
+                    <div class="scoreboard-header">⚔️ GAME STATS ⚔️</div>
+
+                    <div class="scoreboard-content">
+
+                        <div class="player-stats white-stats">
+                            <span class="player-label">WHITE</span>
+                            <span class="material-count">⚙️ <span id="whiteMaterial">0</span></span>
+                            <span class="wins-count">🏆 <span id="whiteWins">0</span></span>
+                            <span class="losses-count">💔 <span id="whiteLosses">0</span></span>
+                        </div>
+
+                        <div class="player-stats black-stats">
+                            <span class="player-label">BLACK</span>
+                            <span class="material-count">⚙️ <span id="blackMaterial">0</span></span>
+                            <span class="wins-count">🏆 <span id="blackWins">0</span></span>
+                            <span class="losses-count">💔 <span id="blackLosses">0</span></span>
+                        </div>
+
+                        <button onclick="declareDraw()" class="draw-btn">
+                            ⚖️ DRAW ⚖️
+                        </button>
+
+                        <button onclick="forfeitGame()" class="forfeit-btn">
+                            🏳️ FORFEIT 🏳️
+                        </button>
+
+                    </div>
+                </div>
+
+            </div> <!-- END side-panel -->
+
+        </div> <!-- END game-container -->
+
+    </div> <!-- END game-screen -->
 
     <div id="status-message"></div>
 
