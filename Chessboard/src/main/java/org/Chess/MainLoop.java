@@ -1,5 +1,6 @@
 package org.Chess;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.logging.Handler;
 
@@ -10,7 +11,12 @@ public class MainLoop {
     public HashMap<Integer, int[]> validMovesBuffer;
     public int lastMoveOrigin;
     public int lastMoveTarget;
-
+    public boolean whiteKingMoved;
+    public boolean blackKingMoved;
+    public boolean whiteLeftRookMoved;
+    public boolean blackLeftRookMoved;
+    public boolean whiteRightRookMoved;
+    public boolean blackRightRookMoved;
 
     public int[] errorLoop() { // get a correct move and return in form [origin, target]
         // here get the correct loop
@@ -21,39 +27,70 @@ public class MainLoop {
         mainBoard = new Board();
         checkMate = false;
         staleMate = false;
+        whiteKingMoved = blackKingMoved = whiteLeftRookMoved = whiteRightRookMoved = blackLeftRookMoved = blackRightRookMoved = false;
         lastMoveOrigin = -1;
         lastMoveTarget = -1;
-        HashMap<Integer, int[]> rawMoves = Moves.allColorMoves(mainBoard.boardState, mainBoard.turnMask, lastMoveOrigin, lastMoveTarget);
+        HashMap<Integer, int[]> rawMoves = Moves.allColorMoves(mainBoard.boardState, mainBoard.turnMask, lastMoveOrigin, lastMoveTarget, false, false, false);
         validMovesBuffer = Moves.validateAllColorMoves(mainBoard.boardState, rawMoves, mainBoard.turnMask);
         // convert and send valid moves to white
     }
 
     public boolean updateGameLoop() {
-        // receive move from frontend
-        int moveOrigin = 8; // convert move in fronend to index form and make it variable moveOrigin and moveTarget
-        int moveTarget = 24;
-        if (!validMovesBuffer.containsKey(moveOrigin) || validMovesBuffer.get(moveOrigin) == null) {
-            int[] validMoves = errorLoop();
-            moveOrigin = validMoves[0];
-            moveTarget = validMoves[1];
+        int moveOrigin = 8;
+        int moveTarget = 24; // THESE ARE TEMPS, get real moves from ui
+
+        if (!validMovesBuffer.containsKey(moveOrigin)) { // validate moves
+            // get real moves
+            return true;
         }
-        lastMoveOrigin = moveOrigin;
+        int piece = mainBoard.boardState[moveOrigin]; // get type and color
+        int type = piece & Methods.TYPE_MASK;
+        int color = piece & Methods.COLOR_MASK;
+
+        if (type == Methods.KING) { // king moved
+            if (color == Methods.WHITE_MASK) whiteKingMoved = true;
+            else blackKingMoved = true;
+        }
+        if (moveOrigin == 0 || moveTarget == 0) whiteLeftRookMoved = true; // rook moved or captured
+        if (moveOrigin == 7 || moveTarget == 7) whiteRightRookMoved = true;
+        if (moveOrigin == 56 || moveTarget == 56) blackLeftRookMoved = true;
+        if (moveOrigin == 63 || moveTarget == 63) blackRightRookMoved = true;
+
+        Moves.move(mainBoard.boardState, moveOrigin, moveTarget); // move
+
+        if (Methods.checkPromotion(mainBoard.boardState, moveTarget)) { // promotion check
+            Methods.promote(mainBoard.boardState, moveTarget, Methods.QUEEN); // replace methods queen with getting promotion tupe
+        }
+
+        lastMoveOrigin = moveOrigin; // move history
         lastMoveTarget = moveTarget;
-        Moves.move(mainBoard.boardState, moveOrigin, moveTarget); // move in board
-        Methods.promote(mainBoard.boardState, moveTarget, Methods.QUEEN); // replace Methods.QUEEN with piece int got from frontend
+
         mainBoard.changeTurnMask(); // change turn
-        boolean check = Methods.inCheck(mainBoard.boardState, Methods.findKing(mainBoard.boardState, mainBoard.turnMask)); // check for check
-        HashMap<Integer, int[]> rawMoves = Moves.allColorMoves(mainBoard.boardState, mainBoard.turnMask, lastMoveOrigin, lastMoveTarget);
-        validMovesBuffer = Moves.validateAllColorMoves(mainBoard.boardState, rawMoves, mainBoard.turnMask); // uudet movet
-        if (check && validMovesBuffer.isEmpty()) {
-            checkMate = true;
+
+        boolean isWhiteTurn = (mainBoard.turnMask == Methods.WHITE_MASK); // generate moves
+
+        HashMap<Integer, int[]> rawMoves = Moves.allColorMoves( // get raw moves
+                mainBoard.boardState,
+                mainBoard.turnMask,
+                lastMoveOrigin,
+                lastMoveTarget,
+                isWhiteTurn ? whiteKingMoved : blackKingMoved,
+                isWhiteTurn ? whiteLeftRookMoved : blackLeftRookMoved,
+                isWhiteTurn ? whiteRightRookMoved : blackRightRookMoved
+        );
+
+        validMovesBuffer = Moves.validateAllColorMoves(mainBoard.boardState, rawMoves, mainBoard.turnMask); // validate
+
+        // check game state
+        int kingIdx = Methods.findKing(mainBoard.boardState, mainBoard.turnMask);
+        boolean inCheck = Methods.isSquareAttacked(mainBoard.boardState, kingIdx, mainBoard.turnMask);
+
+        if (validMovesBuffer.isEmpty()) { // checkMate and stalemate
+            if (inCheck) checkMate = true;
+            else staleMate = true;
             return false;
         }
-        else if (!check && validMovesBuffer.isEmpty()) {
-            staleMate = true;
-            return false;
-        }
-        // send valid moves and check state to frontend
+
         return true;
     }
 

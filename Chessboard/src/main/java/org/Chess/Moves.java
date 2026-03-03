@@ -142,46 +142,71 @@ public class Moves {
         return finishMoves(movesBuffer, movesBufferIdx);
     }
 
-    public static int[] KingMoves(int[] board, int kingIdx) {
-        int[] movesBuffer = new int[8];
+    public static int[] KingMoves(int[] board, int kingIdx, boolean kingMoved,
+                                  boolean leftRookMoved, boolean rightRookMoved, int colorMask) {
+        int[] movesBuffer = new int[10];
         int movesBufferIdx = 0;
         int piece = board[kingIdx];
         int startFile = kingIdx % 8;
-
         for (int offset : KING_OFFSETS) {
             int target = kingIdx + offset;
-            if (target >= 0 && target < 64) {
-                if (Math.abs((target % 8) - startFile) <= 1) {
-                    if (board[target] == 0 ||
-                            (board[target] & Methods.COLOR_MASK) != (piece & Methods.COLOR_MASK)) {
-                        movesBuffer[movesBufferIdx++] = target;
-                    }
+            if (target >= 0 && target < 64 && Math.abs((target % 8) - startFile) <= 1) {
+                if (board[target] == 0 || (board[target] & Methods.COLOR_MASK) != (piece & Methods.COLOR_MASK)) {
+                    movesBuffer[movesBufferIdx++] = target;
+                }
+            }
+        }
+
+        if (!kingMoved && !Methods.isSquareAttacked(board, kingIdx, colorMask)) { // castling
+            int rank = (kingIdx / 8) * 8;
+            if (!rightRookMoved && board[rank + 5] == 0 && board[rank + 6] == 0) { // kingside castle
+                if (!Methods.isSquareAttacked(board, rank + 5, colorMask) &&
+                        !Methods.isSquareAttacked(board, rank + 6, colorMask)) {
+                    movesBuffer[movesBufferIdx++] = rank + 6;
+                }
+            }
+            if (!leftRookMoved && board[rank + 1] == 0 && board[rank + 2] == 0 && board[rank + 3] == 0) { // quuenside castle
+                if (!Methods.isSquareAttacked(board, rank + 2, colorMask) &&
+                        !Methods.isSquareAttacked(board, rank + 3, colorMask)) {
+                    movesBuffer[movesBufferIdx++] = rank + 2;
                 }
             }
         }
         return finishMoves(movesBuffer, movesBufferIdx);
     }
 
-    public static int move(int[] board, int pieceIdx, int targetIdx) { // move method to validate moves, returns the captured piece
+
+    public static int move(int[] board, int pieceIdx, int targetIdx) {
         int piece = board[pieceIdx];
         int capturedPiece = board[targetIdx];
 
-        if ((piece & Methods.TYPE_MASK) == Methods.PAWN && capturedPiece == 0) { // en passant edge case
-            int fileDiff = Math.abs((targetIdx % 8) - (pieceIdx % 8));
-            if (fileDiff != 0) {
-                int victimIdx = (targetIdx / 8 == 5) ? targetIdx - 8 : targetIdx + 8;
-                capturedPiece = board[victimIdx];
-                board[victimIdx] = 0;
+        if ((piece & Methods.TYPE_MASK) == Methods.KING && Math.abs(targetIdx - pieceIdx) == 2) { // castling
+            int rank = (pieceIdx / 8) * 8;
+            if (targetIdx == rank + 6) { // kingside
+                board[rank + 5] = board[rank + 7];
+                board[rank + 7] = 0;
+            } else if (targetIdx == rank + 2) { // queenside
+                board[rank + 3] = board[rank];
+                board[rank] = 0;
             }
         }
-
         board[targetIdx] = piece;
         board[pieceIdx] = 0;
-        return capturedPiece; // return captured piece
+        return capturedPiece;
     }
 
     public static void undoMove(int[] board, int pieceIdx, int targetIdx, int capturedPiece) { // undo the move
         int piece = board[targetIdx];
+        if ((piece & Methods.TYPE_MASK) == Methods.KING && Math.abs(targetIdx - pieceIdx) == 2) {
+            int rank = (pieceIdx / 8) * 8;
+            if (targetIdx == rank + 6) { // undo kingside
+                board[rank + 7] = board[rank + 5];
+                board[rank + 5] = 0;
+            } else if (targetIdx == rank + 2) { // undo queenside
+                board[rank] = board[rank + 3];
+                board[rank + 3] = 0;
+            }
+        }
         board[pieceIdx] = piece;
         board[targetIdx] = 0; // put empty in square
         if ((piece & Methods.TYPE_MASK) == Methods.PAWN && capturedPiece != 0) { // en passant edgecase
@@ -203,7 +228,8 @@ public class Moves {
         return check;
     }
 
-    public static HashMap<Integer, int[]> allColorMoves(int[] board, int colorMask, int lastMoveOriginIdx, int lastMoveTargetIdx) { // get all possible moves by color
+    public static HashMap<Integer, int[]> allColorMoves(int[] board, int colorMask, int lastMoveOriginIdx, int lastMoveTargetIdx,
+                                                        boolean kingMoved, boolean leftRookMoved, boolean rightRookMoved) { // get all possible moves by color
         HashMap<Integer, int[]> moves = new HashMap<>();
         for (int i = 0; i < 64; ++i) {
             int piece = board[i];
@@ -215,7 +241,7 @@ public class Moves {
                 case Methods.ROOK -> Moves.RookMoves(board, i);
                 case Methods.BISHOP -> Moves.BishopMoves(board, i);
                 case Methods.QUEEN -> Moves.QueenMoves(board, i);
-                case Methods.KING -> Moves.KingMoves(board, i);
+                case Methods.KING -> Moves.KingMoves(board, i, kingMoved, leftRookMoved, rightRookMoved, colorMask);
                 default -> null;
             };
             if (possibleMoves != null) moves.put(i, possibleMoves);

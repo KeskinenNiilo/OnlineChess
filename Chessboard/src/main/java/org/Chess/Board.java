@@ -1,13 +1,13 @@
 package org.Chess;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 
 public class Board {
     public int[] boardState;
     public int turnMask;
-    public int[] unmovedPieces;
     Board() {
-        int[] backRank = {Methods.ROOK, Methods.KNIGHT, Methods.BISHOP, Methods.KING, Methods.QUEEN, Methods.BISHOP, Methods.KNIGHT, Methods.ROOK};
+        int[] backRank = {Methods.ROOK, Methods.KNIGHT, Methods.BISHOP, Methods.QUEEN, Methods.KING, Methods.BISHOP, Methods.KNIGHT, Methods.ROOK};
         int[] board = new int[64];
         for (int i = 0; i < 8; ++i) {
             board[i] = backRank[i];
@@ -17,7 +17,6 @@ public class Board {
         }
         boardState = board;
         turnMask = Methods.WHITE_MASK;
-        unmovedPieces = new int[]{0, 3, 7, 56, 59, 63};
     }
 
     public void changeTurnMask() {
