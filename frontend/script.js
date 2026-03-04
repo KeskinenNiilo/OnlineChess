@@ -2,6 +2,14 @@
 
 const moveSound = new Audio('assets/move.wav')
 const board = document.getElementById("chessboard");
+const PIECE_VALUES = {
+    "white_pawn": 1, "black_pawn": 1,
+    "white_knight": 3, "black_knight": 3,
+    "white_bishop": 3, "black_bishop": 3,
+    "white_rook": 5, "black_rook": 5,
+    "white_queen": 9, "black_queen": 9,
+    "white_king": 0, "black_king": 0
+};
 let selectedSquare = null;
 let pieceElements = new Map(); // Stores { "row-col": DOMElement }
 
@@ -113,11 +121,14 @@ async function setupGame(roomCode, side) {
     document.getElementById('code-text').textContent = roomCode;
 
     // If the player's side is black, the board is rotated 180
-    if (playerSide === "black")applyPerspective();
+    if (playerSide === "black") applyPerspective();
 
     
     createBoard();// Create the board with the synced gameState
     updateTurnUI();//update the turn UI eg. "your turn", "opponent's turn"
+    
+    // ADD THIS LINE - Update material display
+    updateMaterialDisplay();
     
     // Start polling for opponent moves
     setTimeout(pollServer, 1500);
@@ -144,7 +155,10 @@ async function pollServer() {
             gameState = data.board;
             currentTurn = data.turn;
             updateTurnUI();
-        }else {
+            
+            // ADD THIS LINE - Update material after opponent's move
+            updateMaterialDisplay();
+        } else {
             //ensuring the correct turn is displayed
             updateTurnUI();
         }
@@ -370,7 +384,7 @@ function performSlide(fromRow, fromCol, toRow, toCol) {
             capturedEl.remove(); 
         }
 
-        // Move Visually
+           // Move Visually
         pieceEl.style.top = `${toRow * 60}px`;
         pieceEl.style.left = `${toCol * 60}px`;
 
@@ -388,9 +402,10 @@ function performSlide(fromRow, fromCol, toRow, toCol) {
 
         currentTurn = (currentTurn === "white") ? "black" : "white";
         console.log("Next turn:", currentTurn);
+        
+        // ADD THIS LINE - Update material after move
+        updateMaterialDisplay();
     }
-
-    
 
     clearHighlights();
 }
@@ -420,3 +435,74 @@ window.addEventListener('beforeunload', () => {
         });
     }
 });
+
+
+//calculate material from gameState
+function calculateMaterial() {
+    let whiteTotal = 0;
+    let blackTotal = 0;
+    
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            const piece = gameState[row][col];
+            if (piece && piece !== "empty" && piece !== "") {
+                const value = PIECE_VALUES[piece] || 0;
+                if (whitePieces.includes(piece)) {
+                    whiteTotal += value;
+                } else if (blackPieces.includes(piece)) {
+                    blackTotal += value;
+                }
+            }
+        }
+    }
+    
+    return { white: whiteTotal, black: blackTotal };
+}
+
+// update the material display
+function updateMaterialDisplay() {
+    const material = calculateMaterial();
+    
+    // Update the HTML elements with your EXISTING IDs
+    document.getElementById('whiteMaterial').textContent = material.white;
+    document.getElementById('blackMaterial').textContent = material.black;
+    
+    // Optional: Log the balance to console since you don't have a balance element in HTML
+    const balance = material.white - material.black;
+    if (balance > 0) {
+        console.log(`White advantage: +${balance}`);
+    } else if (balance < 0) {
+        console.log(`Black advantage: ${balance}`);
+    } else {
+        console.log("Material equal");
+    }
+}
+// fetch material from server (if you implement the backend endpoint)
+async function fetchMaterialFromServer() {
+    if (!currentRoom) return;
+    
+    try {
+        const response = await fetch(`${API_URL}/material?room=${currentRoom}`);
+        const data = await response.json();
+        
+        if (data) {
+            document.getElementById('white-material').textContent = data.white;
+            document.getElementById('black-material').textContent = data.black;
+            
+            const balanceElement = document.getElementById('material-balance');
+            if (data.balance > 0) {
+                balanceElement.textContent = '+' + data.balance;
+                balanceElement.className = 'white-advantage';
+            } else if (data.balance < 0) {
+                balanceElement.textContent = data.balance;
+                balanceElement.className = 'black-advantage';
+            } else {
+                balanceElement.textContent = '0';
+                balanceElement.className = 'equal';
+            }
+        }
+    } catch (err) {
+        console.warn("Failed to fetch material from server, using local calculation");
+        updateMaterialDisplay(); // Fallback to local calculation
+    }
+}
