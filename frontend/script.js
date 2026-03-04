@@ -10,6 +10,8 @@ const PIECE_VALUES = {
     "white_queen": 9, "black_queen": 9,
     "white_king": 0, "black_king": 0
 };
+let drawRequested = false; // Track if a draw has been requested
+let gameOver = false; // Track if game is over
 let selectedSquare = null;
 let pieceElements = new Map(); // Stores { "row-col": DOMElement }
 
@@ -505,4 +507,322 @@ async function fetchMaterialFromServer() {
         console.warn("Failed to fetch material from server, using local calculation");
         updateMaterialDisplay(); // Fallback to local calculation
     }
+}
+
+// Function to handle draw button click
+function declareDraw() {
+    if (gameOver) {
+        showStatus("Game is already over!");
+        return;
+    }
+    
+    if (currentTurn !== playerSide) {
+        showStatus("It's not your turn to request a draw!");
+        return;
+    }
+    
+    // Show confirmation dialog
+    if (confirm("Do you want to offer a draw to your opponent?")) {
+        sendDrawOffer();
+    }
+}
+
+// Function to send draw offer to server
+async function sendDrawOffer() {
+    try {
+        const response = await fetch(`${API_URL}/draw`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room: currentRoom,
+                side: playerSide
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === "success") {
+            drawRequested = true;
+            showStatus("Draw offer sent! Waiting for opponent...");
+        } else {
+            showStatus("Failed to send draw offer.");
+        }
+    } catch (err) {
+        showStatus("⚠️ Failed to send draw offer.");
+    }
+}
+
+// Function to handle forfeit button click
+function forfeitGame() {
+    if (gameOver) {
+        showStatus("Game is already over!");
+        return;
+    }
+    
+    // Show confirmation dialog
+    const confirmForfeit = confirm("Are you sure you want to forfeit? This will count as a loss.");
+    
+    if (confirmForfeit) {
+        sendForfeit();
+    }
+}
+
+// Function to send forfeit to server
+async function sendForfeit() {
+    try {
+        const response = await fetch(`${API_URL}/forfeit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room: currentRoom,
+                side: playerSide
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === "success") {
+            gameOver = true;
+            showStatus(`You forfeited. ${playerSide === "white" ? "Black" : "White"} wins!`);
+            
+            // Update win/loss counts
+            updateWinLossCounts(playerSide === "white" ? "black" : "white");
+            
+            // Show restart option after 2 seconds
+            setTimeout(() => {
+                showRestartOption();
+            }, 2000);
+        } else {
+            showStatus("Failed to forfeit.");
+        }
+    } catch (err) {
+        showStatus("⚠️ Failed to forfeit.");
+    }
+}
+
+// Function to handle draw response from opponent
+async function respondToDraw(accept) {
+    try {
+        const response = await fetch(`${API_URL}/draw-response`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room: currentRoom,
+                side: playerSide,
+                accept: accept
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === "success") {
+            if (accept) {
+                gameOver = true;
+                showStatus("Draw accepted! Game is a draw.");
+                
+                // Update win/loss counts (draw doesn't affect wins/losses)
+                // You might want to add a draws counter if you want
+                
+                // Show restart option after 2 seconds
+                setTimeout(() => {
+                    showRestartOption();
+                }, 2000);
+            } else {
+                showStatus("Draw declined. Game continues!");
+                drawRequested = false;
+            }
+        }
+    } catch (err) {
+        showStatus("⚠️ Failed to respond to draw offer.");
+    }
+}
+
+// Function to show draw popup when opponent requests draw
+function showDrawPopup() {
+    // Create popup if it doesn't exist
+    let popup = document.getElementById('draw-popup');
+    if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'draw-popup';
+        popup.className = 'popup';
+        popup.innerHTML = `
+            <div class="popup-content">
+                <h3>Draw Offer</h3>
+                <p>Your opponent offers a draw. Do you accept?</p>
+                <div class="popup-buttons">
+                    <button onclick="respondToDraw(true)" class="accept-btn">✓ Accept</button>
+                    <button onclick="respondToDraw(false)" class="decline-btn">✗ Decline</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(popup);
+    }
+    popup.style.display = 'flex';
+}
+
+// Function to show restart option after game ends
+function showRestartOption() {
+    // Create restart popup if it doesn't exist
+    let popup = document.getElementById('restart-popup');
+    if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'restart-popup';
+        popup.className = 'popup';
+        popup.innerHTML = `
+            <div class="popup-content">
+                <h3>Game Over</h3>
+                <p id="game-over-message">The game has ended.</p>
+                <div class="popup-buttons">
+                    <button onclick="restartGame()" class="restart-btn">🔄 Play Again</button>
+                    <button onclick="returnToLobby()" class="lobby-btn">🏠 Lobby</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(popup);
+    }
+    
+    // Update message based on result
+    const messageEl = document.getElementById('game-over-message');
+    if (messageEl) {
+        // You can customize this message based on how the game ended
+        messageEl.textContent = "The game has ended. What would you like to do?";
+    }
+    
+    popup.style.display = 'flex';
+}
+
+// Function to restart the game
+async function restartGame() {
+    try {
+        const response = await fetch(`${API_URL}/restart`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room: currentRoom
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === "success") {
+            // Reset game state
+            gameOver = false;
+            drawRequested = false;
+            
+            // Get fresh board state
+            const stateResponse = await fetch(`${API_URL}/state?room=${currentRoom}`);
+            const data = await stateResponse.json();
+            
+            if (data && data.board) {
+                gameState = data.board;
+                currentTurn = data.turn;
+            }
+            
+            // Recreate board
+            createBoard();
+            updateTurnUI();
+            updateMaterialDisplay();
+            
+            // Hide popups
+            hideAllPopups();
+            
+            showStatus("Game restarted!");
+        } else {
+            showStatus("Failed to restart game.");
+        }
+    } catch (err) {
+        showStatus("⚠️ Failed to restart game.");
+    }
+}
+
+// Function to return to lobby
+function returnToLobby() {
+    // Hide game screen and show landing page
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('landing-page').style.display = 'block';
+    
+    // Reset game state
+    gameOver = false;
+    drawRequested = false;
+    currentRoom = null;
+    
+    // Hide all popups
+    hideAllPopups();
+    
+    // Clear join input
+    document.getElementById('join-input').value = '';
+}
+
+// Helper function to hide all popups
+function hideAllPopups() {
+    const popups = document.querySelectorAll('.popup');
+    popups.forEach(popup => {
+        popup.style.display = 'none';
+    });
+}
+
+// Function to update win/loss counts
+function updateWinLossCounts(winner) {
+    if (winner === "white") {
+        const whiteWins = document.getElementById('whiteWins');
+        const blackLosses = document.getElementById('blackLosses');
+        whiteWins.textContent = parseInt(whiteWins.textContent) + 1;
+        blackLosses.textContent = parseInt(blackLosses.textContent) + 1;
+    } else if (winner === "black") {
+        const blackWins = document.getElementById('blackWins');
+        const whiteLosses = document.getElementById('whiteLosses');
+        blackWins.textContent = parseInt(blackWins.textContent) + 1;
+        whiteLosses.textContent = parseInt(whiteLosses.textContent) + 1;
+    }
+}
+
+// Modify pollServer to check for draw offers
+async function pollServer() {
+    if (gameOver) return; // Don't poll if game is over
+    
+    if (currentTurn === playerSide || !currentRoom) return;
+
+    try {
+        const response = await fetch(`${API_URL}/state?room=${currentRoom}`);
+
+        if (response.status === 429) {
+            console.warn("Rate limit hit, slowing down...");
+            return;
+        }
+
+        const data = await response.json();
+        
+        // Check if there's a draw offer
+        if (data.drawOffer && data.drawOffer !== playerSide && !drawRequested) {
+            showDrawPopup();
+        }
+        
+        // Check if game is over
+        if (data.gameOver) {
+            gameOver = true;
+            if (data.winner) {
+                showStatus(`${data.winner} wins!`);
+                updateWinLossCounts(data.winner);
+            } else if (data.draw) {
+                showStatus("Game ended in a draw!");
+            }
+            setTimeout(() => {
+                showRestartOption();
+            }, 2000);
+        }
+        
+        // If the data got from the server is equal to player's side,
+        // animate the opponent's move, refresh the gamestate and change turn
+        if (data.turn === playerSide) {
+            detectAndAnimateOpponentMove(data.board);
+            gameState = data.board;
+            currentTurn = data.turn;
+            updateTurnUI();
+            updateMaterialDisplay();
+        } else {
+            updateTurnUI();
+        }
+    } catch (e) { console.warn("Polling..."); }
+
+    setTimeout(pollServer, 2000);
 }
