@@ -120,9 +120,15 @@ public class Methods {
     }
 
     public static int enPassant(int[] board, int lastMoveOriginIdx, int lastMoveTargetIdx) {
+        // 1. Guard against -1 or out of bounds
+        if (lastMoveTargetIdx < 0 || lastMoveTargetIdx >= 64 || lastMoveOriginIdx < 0) return -1;
+
         int victimPiece = board[lastMoveTargetIdx];
         if ((victimPiece & TYPE_MASK) != PAWN) return -1;
+        
+        // 2. A double jump is exactly 16 squares in a 1D array
         if (Math.abs(lastMoveTargetIdx - lastMoveOriginIdx) != 16) return -1;
+        
         return (lastMoveOriginIdx + lastMoveTargetIdx) / 2;
     }
 }

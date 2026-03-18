@@ -180,6 +180,15 @@ public class Moves {
         int piece = board[pieceIdx];
         int capturedPiece = board[targetIdx];
 
+        if ((piece & Methods.TYPE_MASK) == Methods.PAWN) {
+            int fileDiff = Math.abs((targetIdx % 8) - (pieceIdx % 8));
+            if (fileDiff != 0 && capturedPiece == 0) { // Moving diagonally to an empty square
+                int victimIdx = (targetIdx / 8 == 5) ? targetIdx - 8 : targetIdx + 8;
+                capturedPiece = board[victimIdx]; // Capture the pawn behind
+                board[victimIdx] = 0;             // Remove it from the board!
+            }
+        }
+
         if ((piece & Methods.TYPE_MASK) == Methods.KING && Math.abs(targetIdx - pieceIdx) == 2) { // castling
             int rank = (pieceIdx / 8) * 8;
             if (targetIdx == rank + 6) { // kingside
@@ -192,6 +201,7 @@ public class Moves {
         }
         board[targetIdx] = piece;
         board[pieceIdx] = 0;
+        System.out.println("move run");
         return capturedPiece;
     }
 
@@ -214,6 +224,7 @@ public class Moves {
             if (fileDiff != 0) {
                 int victimIdx = (targetIdx / 8 == 5) ? targetIdx - 8 : targetIdx + 8;
                 board[victimIdx] = capturedPiece;
+                System.out.println("undoMove run");
                 return;
             }
         }
@@ -244,6 +255,7 @@ public class Moves {
                 case Methods.KING -> Moves.KingMoves(board, i, kingMoved, leftRookMoved, rightRookMoved, colorMask);
                 default -> null;
             };
+            System.out.println("allColorMoves run");
             if (possibleMoves != null) moves.put(i, possibleMoves);
         }
         return moves;

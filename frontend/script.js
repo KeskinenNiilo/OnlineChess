@@ -124,7 +124,10 @@ async function setupGame(roomCode, side) {
 }
 
 async function pollServer() {
-    if (currentTurn === playerSide || !currentRoom) return;
+    if (!currentRoom) {
+	setTimeout(pollServer, 2000);
+	return
+	}
 
     try {
         //get the state of current room
@@ -139,22 +142,33 @@ async function pollServer() {
         
         // If the data got from the server is equal to player's side,
         // animate the opponent's move, refresh the gamestate and change turn
-        if (data.turn === playerSide) {
+        if (data.turn === playerSide && currentTurn !== playerSide) {
             detectAndAnimateOpponentMove(data.board);
             gameState = data.board;
             currentTurn = data.turn;
+
+            setTimeout(() => {
+            createBoard();
             updateTurnUI();
-        }else {
-            //ensuring the correct turn is displayed
+            }, 400);
+        } else {
+            currentTurn = data.turn;
             updateTurnUI();
         }
-    } catch (e) { console.warn("Polling..."); }
+
+        if (data.checkMate || data.staleMate) {
+            showStatus(data.checkMate ? "Checkmate" : "Stalemate");
+            return;
+        }
+    } catch (e) { console.warn("Polling error:", e); }
 
     setTimeout(pollServer, 2000);
 }
 
 function detectAndAnimateOpponentMove(newBoard) {
-    let moveFound = { from: null, to: null };
+    let moveFrom = null;
+    let moveTo = null;
+    const opponentColor = (playerSide === "white") ? "black" : "white";
 
     // Compare the current gameState with the newBoard from server
     for (let r = 0; r < 8; r++) {
@@ -166,20 +180,20 @@ function detectAndAnimateOpponentMove(newBoard) {
 
             // If a piece disappeared from here, it's the 'from'.
             if (oldPiece !== "empty" && oldPiece !== "" && (newPiece === "empty" ||  newPiece === "")) {
-                moveFound.from = [r, c];
+                moveFrom = [r, c];
             }
 
-            if(newPiece !== "empty" && newPiece !== "") {
-                moveFound.to = [r, c];
+            if(newPiece.includes(opponentColor)) {
+                moveTo = [r, c];
             }
         }
     }
 
-    if (moveFound.from && moveFound.to) {
-        performSlide(moveFound.from[0], moveFound.from[1], moveFound.to[0], moveFound.to[1]);
+    if (moveFrom && moveTo) {
+        performSlide(moveFrom[0], moveFrom[1], moveTo[0], moveTo[1]);
     } else {
         // If we can't figure out the slide, just redraw as a fallback
-        createBoard();
+        createBoard(newBoard);
     }
 }
 
