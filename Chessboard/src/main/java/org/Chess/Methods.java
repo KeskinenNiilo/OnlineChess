@@ -73,8 +73,7 @@ public class Methods {
         }
 
         // Pawn Threat
-        // if colorMask is WHITE, we look for BLACK pawns "ahead" of us.
-        int[] pawnThreat = (oppMask == BLACK_MASK) ? new int[]{7, 9} : new int[]{-9, -7};
+        int[] pawnThreat = (oppMask == BLACK_MASK) ? new int[]{7, 9} : new int[]{-9, -7}; // pawns can only eat dianogally
         for (int moveDir : pawnThreat) {
             int threat = targetIdx + moveDir;
             if (threat < 0 || threat >= 64) continue; // bounds check
@@ -101,17 +100,17 @@ public class Methods {
 
     public static int findKing(int[] board, int colorMask) { // find king
         if (colorMask == COLOR_MASK) { // if king black
-            for (int i = 63; i >= 0; --i)
+            for (int i = 63; i >= 0; --i) // start from black rank to shorten search time
                 if ((board[i] & COLOR_MASK) == colorMask && (board[i] & TYPE_MASK) == KING) return i;
         } else {
-            for (int i = 0; i < 64; ++i)
+            for (int i = 0; i < 64; ++i) // else start from white rank
                 if ((board[i] & COLOR_MASK) == colorMask && (board[i] & TYPE_MASK) == KING) return i;
         }
         return -1;
     }
 
     public static boolean checkPromotion(int[] board, int targetIdx) { // check promotion from last move
-        return ((targetIdx >= 56 && targetIdx < 64 && (board[targetIdx] & TYPE_MASK) == PAWN && (board[targetIdx] & COLOR_MASK) == WHITE_MASK)
+        return ((targetIdx >= 56 && targetIdx < 64 && (board[targetIdx] & TYPE_MASK) == PAWN && (board[targetIdx] & COLOR_MASK) == WHITE_MASK) // check if pawn
                 || (targetIdx >= 0 && targetIdx < 8 && (board[targetIdx] & TYPE_MASK) == PAWN && (board[targetIdx] & COLOR_MASK) == BLACK_MASK));
     }
 
@@ -120,15 +119,12 @@ public class Methods {
     }
 
     public static int enPassant(int[] board, int lastMoveOriginIdx, int lastMoveTargetIdx) {
-        // 1. Guard against -1 or out of bounds
-        if (lastMoveTargetIdx < 0 || lastMoveTargetIdx >= 64 || lastMoveOriginIdx < 0) return -1;
+        if (lastMoveTargetIdx < 0 || lastMoveTargetIdx >= 64 || lastMoveOriginIdx < 0) return -1; // out of bounds check
 
         int victimPiece = board[lastMoveTargetIdx];
-        if ((victimPiece & TYPE_MASK) != PAWN) return -1;
-        
-        // 2. A double jump is exactly 16 squares in a 1D array
-        if (Math.abs(lastMoveTargetIdx - lastMoveOriginIdx) != 16) return -1;
-        
-        return (lastMoveOriginIdx + lastMoveTargetIdx) / 2;
+        if ((victimPiece & TYPE_MASK) != PAWN) return -1; // type check
+
+        if (Math.abs(lastMoveTargetIdx - lastMoveOriginIdx) != 16) return -1; // check if move was double jump
+        return (lastMoveOriginIdx + lastMoveTargetIdx) / 2; // return the en passant square
     }
 }
