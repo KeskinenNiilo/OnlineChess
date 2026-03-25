@@ -76,6 +76,7 @@ public class ChessController {
         boolean success = game.handleMove(fromIdx, toIdx);
 
         if (success) {
+            System.out.println("Move successful. Room: " + request.room + " Checkmate status: " + game.checkMate);
             return Map.of("status", "success");
         }else{
             return Map.of("status", "invalid");

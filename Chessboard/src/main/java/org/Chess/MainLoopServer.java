@@ -110,14 +110,23 @@ public class MainLoopServer {
     }
 
     private void checkGameOver() {
+    // 1. Find the king of the player whose turn it is now
         int kingIdx = Methods.findKing(mainBoard.boardState, mainBoard.turnMask);
-        // You need to check if the square is attacked by the OPPOSITE color
-        int opponentMask = (mainBoard.turnMask == Methods.WHITE_MASK) ? Methods.BLACK_MASK : Methods.WHITE_MASK;
         
-        boolean inCheck = Methods.isSquareAttacked(mainBoard.boardState, kingIdx, mainBoard.turnMask); 
-        // ^ Wait: Inside isSquareAttacked, it calculates oppMask internally. 
-        // But your call passes turnMask as the 'colorMask'. 
-        // This is actually okay ONLY IF isSquareAttacked is written to treat the 3rd param as 'Friend color'.
+        // 2. Check if that king is currently under attack
+        boolean inCheck = Methods.isSquareAttacked(mainBoard.boardState, kingIdx, mainBoard.turnMask);
+
+        // 3. If there are NO legal moves for the current player
+        if (validMovesBuffer.isEmpty()) {
+            if (inCheck) {
+                this.checkMate = true;
+                System.out.println("Checkmate detected for: " + 
+                    (mainBoard.turnMask == Methods.WHITE_MASK ? "White" : "Black"));
+            } else {
+                this.staleMate = true;
+                System.out.println("Stalemate detected.");
+            }
+        }
     }
 
     private void updateMovementFlags(int moveOrigin, int moveTarget) {
