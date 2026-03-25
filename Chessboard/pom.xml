@@ -8,7 +8,7 @@
     <artifactId>Chessboard</artifactId>
     <version>1.0-SNAPSHOT</version>
 
-<!---springboot parent--->
+<!---springboot parent -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -32,20 +32,21 @@
             <artifactId>jackson-databind</artifactId>
             <version>2.17.0</version>
         </dependency>
-
+        <!--- spring boot didn't like this.
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>2.0.12</version>
         </dependency>
+        -->
 
-        <!--- springboot --->
+        <!--- springboot -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!--- bucket4j (ratelimit) --->
+        <!--- bucket4j (ratelimit) -->
         <dependency>
             <groupId>com.github.vladimir-bukhtoyarov</groupId>
             <artifactId>bucket4j-core</artifactId>
@@ -53,7 +54,7 @@
         </dependency>
     </dependencies>
 
-    <!--- build stuff for springboot --->
+    <!--- build stuff for springboot -->
     <build>
         <plugins>
             <plugin>
