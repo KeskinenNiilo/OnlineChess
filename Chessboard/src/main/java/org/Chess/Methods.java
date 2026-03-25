@@ -14,6 +14,29 @@ public class Methods {
     public static final int QUEEN = 5;
     public static final int KING = 6;
 
+    //Material values
+    public static final int PAWN_VALUE = 1;
+    public static final int KNIGHT_VALUE = 3;
+    public static final int BISHOP_VALUE = 3;
+    public static final int ROOK_VALUE = 5;
+    public static final int QUEEN_VALUE = 9;
+    public static final int KING_VALUE = 0;
+
+
+    //Get Piece value
+    public static int getPieceValue(int pieceType) {
+        return switch (pieceType) {
+            case PAWN -> PAWN_VALUE;
+            case KNIGHT -> KNIGHT_VALUE;
+            case BISHOP -> BISHOP_VALUE;
+            case ROOK -> ROOK_VALUE;
+            case QUEEN -> QUEEN_VALUE;
+            case KING -> KING_VALUE;
+            default -> 0;
+        };
+    }
+
+
     public static boolean inCheck(int[] board, int kingIdx) { // check if in check
         return isSquareAttacked(board, kingIdx, board[kingIdx] & COLOR_MASK);
     }
