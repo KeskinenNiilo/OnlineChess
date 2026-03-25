@@ -117,7 +117,7 @@ async function setupGame(roomCode, side) {
 
     
     createBoard();// Create the board with the synced gameState
-    updateTurnUI();//update the turn UI eg. "your turn", "opponent's turn"
+    updateTurnUI(false);//update the turn UI eg. "your turn", "opponent's turn"
     
     // Start polling for opponent moves
     setTimeout(pollServer, 1500);
@@ -132,13 +132,15 @@ async function pollServer() {
     try {
         //get the state of current room
         const response = await fetch(`${API_URL}/state?room=${currentRoom}`);
+        const data = await response.json();
 
         if (response.status === 429) {
             console.warn("Rate limit hit, slowing down...");
             return;
         }
 
-        const data = await response.json();
+        
+        const isCheckmate = data.checkMate;
         
         // If the data got from the server is equal to player's side,
         // animate the opponent's move, refresh the gamestate and change turn
@@ -148,16 +150,17 @@ async function pollServer() {
             currentTurn = data.turn;
 
             setTimeout(() => {
-            createBoard();
-            updateTurnUI();
+                createBoard();
+                updateTurnUI(isCheckmate);
             }, 400);
         } else {
             currentTurn = data.turn;
-            updateTurnUI();
+            updateTurnUI(isCheckmate);
         }
 
-        if (data.checkMate || data.staleMate) {
-            showStatus(data.checkMate ? "Checkmate" : "Stalemate");
+        if (isCheckmate) {
+            showStatus("checkmate.");
+            console.log("checkmate detected.");
             return;
         }
     } catch (e) { console.warn("Polling error:", e); }
@@ -197,12 +200,24 @@ function detectAndAnimateOpponentMove(newBoard) {
     }
 }
 
-function updateTurnUI() {
-    if (currentTurn === playerSide) {
-        turnIndicator.innerHTML = "It's your turn."
+function updateTurnUI(checkMate) {
+    const turnIndicator = document.getElementById("turn-indicator");
+   if (checkMate) {
+        // If it's white's turn and checkmate is true, black won.
+        const winner = (currentTurn === "white") ? "Black" : "White";
+        turnIndicator.innerHTML = `<b style="color: red;">CHECKMATE! ${winner} wins!</b>`;
+        
+        // Disable board interactions
+        //board.style.pointerEvents = "none"; 
+        return;
     } else {
-        turnIndicator.innerHTML = "It's the opponent's turn."
+        if (currentTurn === playerSide) {
+            turnIndicator.innerHTML = "It's your turn.";
+        } else {
+            turnIndicator.innerHTML = "It's the opponent's turn.";
+        }
     }
+
 }
 
 function applyPerspective() {
