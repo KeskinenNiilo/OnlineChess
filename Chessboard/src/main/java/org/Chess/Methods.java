@@ -142,12 +142,7 @@ public class Methods {
     }
 
     public static int enPassant(int[] board, int lastMoveOriginIdx, int lastMoveTargetIdx) {
-        if (lastMoveTargetIdx < 0 || lastMoveTargetIdx >= 64 || lastMoveOriginIdx < 0) return -1; // out of bounds check
-
-        int victimPiece = board[lastMoveTargetIdx];
-        if ((victimPiece & TYPE_MASK) != PAWN) return -1; // type check
-
-        if (Math.abs(lastMoveTargetIdx - lastMoveOriginIdx) != 16) return -1; // check if move was double jump
-        return (lastMoveOriginIdx + lastMoveTargetIdx) / 2; // return the en passant square
+        // for future iteration
+        return -1;
     }
 }

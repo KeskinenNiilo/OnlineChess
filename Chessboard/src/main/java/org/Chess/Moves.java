@@ -85,15 +85,6 @@ public class Moves {
             }
         }
 
-        int epSquare = Methods.enPassant(board, lastMoveOriginIdx, lastMoveTargetIdx); // check for en passant square
-        if (epSquare != -1) {
-            for (int offset : PAWN_CAPTURE) {
-                int targetIdx = pawnIdx + (moveDir * offset);
-                if (targetIdx == epSquare && Math.abs((targetIdx % 8) - file) == 1) {
-                    movesBuffer[movesBufferIdx++] = targetIdx;
-                }
-            }
-        }
         return finishMoves(movesBuffer, movesBufferIdx); // return an array of correct size
     }
 
@@ -157,21 +148,6 @@ public class Moves {
             }
         }
 
-        if (!kingMoved && !Methods.isSquareAttacked(board, kingIdx, colorMask)) { // castling
-            int rank = (kingIdx / 8) * 8;
-            if (!rightRookMoved && board[rank + 5] == 0 && board[rank + 6] == 0) { // kingside castle
-                if (!Methods.isSquareAttacked(board, rank + 5, colorMask) && // if any squres between king and rook are attacked, castling not possible
-                        !Methods.isSquareAttacked(board, rank + 6, colorMask)) {
-                    movesBuffer[movesBufferIdx++] = rank + 6;
-                }
-            }
-            if (!leftRookMoved && board[rank + 1] == 0 && board[rank + 2] == 0 && board[rank + 3] == 0) { // quuenside castle
-                if (!Methods.isSquareAttacked(board, rank + 2, colorMask) &&
-                        !Methods.isSquareAttacked(board, rank + 3, colorMask)) {
-                    movesBuffer[movesBufferIdx++] = rank + 2;
-                }
-            }
-        }
         return finishMoves(movesBuffer, movesBufferIdx);
     }
 
@@ -180,25 +156,6 @@ public class Moves {
         int piece = board[pieceIdx];
         int capturedPiece = board[targetIdx];
 
-        if ((piece & Methods.TYPE_MASK) == Methods.PAWN) { // en passant
-            int fileDiff = Math.abs((targetIdx % 8) - (pieceIdx % 8));
-            if (fileDiff != 0 && capturedPiece == 0) { // moving "behind" pawn for a en passant
-                int victimIdx = (targetIdx / 8 == 5) ? targetIdx - 8 : targetIdx + 8; // switch case depending on pawn color
-                capturedPiece = board[victimIdx]; // Capture the pawn behind
-                board[victimIdx] = 0;             // remove captured pawn
-            }
-        }
-
-        if ((piece & Methods.TYPE_MASK) == Methods.KING && Math.abs(targetIdx - pieceIdx) == 2) { // castling
-            int rank = (pieceIdx / 8) * 8; // back rank edges
-            if (targetIdx == rank + 6) { // kingside
-                board[rank + 5] = board[rank + 7]; // move king to correct place
-                board[rank + 7] = 0; // clear previous square
-            } else if (targetIdx == rank + 2) { // queenside
-                board[rank + 3] = board[rank];
-                board[rank] = 0;
-            }
-        }
         board[targetIdx] = piece;
         board[pieceIdx] = 0;
         System.out.println("move run"); // debug log
@@ -207,27 +164,11 @@ public class Moves {
 
     public static void undoMove(int[] board, int pieceIdx, int targetIdx, int capturedPiece) { // undo the move
         int piece = board[targetIdx];
-        if ((piece & Methods.TYPE_MASK) == Methods.KING && Math.abs(targetIdx - pieceIdx) == 2) { // undo castle moves
-            int rank = (pieceIdx / 8) * 8;
-            if (targetIdx == rank + 6) { // undo kingside
-                board[rank + 7] = board[rank + 5];
-                board[rank + 5] = 0;
-            } else if (targetIdx == rank + 2) { // undo queenside
-                board[rank] = board[rank + 3];
-                board[rank + 3] = 0;
-            }
-        }
+
+
         board[pieceIdx] = piece;
         board[targetIdx] = 0; // put empty in square
-        if ((piece & Methods.TYPE_MASK) == Methods.PAWN && capturedPiece != 0) { // en passant edgecase
-            int fileDiff = Math.abs((targetIdx % 8) - (pieceIdx % 8));
-            if (fileDiff != 0) {
-                int victimIdx = (targetIdx / 8 == 5) ? targetIdx - 8 : targetIdx + 8;
-                board[victimIdx] = capturedPiece;
-                System.out.println("undoMove run"); // debug log
-                return;
-            }
-        }
+
         board[targetIdx] = capturedPiece; // normal capture
     }
 
