@@ -53,39 +53,48 @@ public class Moves {
 
     // moves for pawn, this is longer because pawn has so many different edge cases
     public static int[] PawnMoves(int[] board, int pawnIdx, int lastMoveOriginIdx, int lastMoveTargetIdx) {
-        int[] movesBuffer = new int[4]; // movesBuffer.length -> all possible moves
-        int movesBufferIdx = 0; // track index to insert into array
-        int piece = board[pawnIdx]; // int value of piece
-        boolean pawnWhite = (piece & Methods.COLOR_MASK) == Methods.WHITE_MASK; // check color
-        int moveDir = pawnWhite ? 1 : -1;                        // and determine what way it goes
+        int[] movesBuffer = new int[5]; // 1 forward, 2 forward, 2 captures, 1 en passant
+        int movesBufferIdx = 0;
+        int piece = board[pawnIdx];
+        boolean pawnWhite = (piece & Methods.COLOR_MASK) == Methods.WHITE_MASK;
+        int moveDir = pawnWhite ? 1 : -1;
         int file = pawnIdx % 8;
 
-        int oneStep = pawnIdx + (moveDir * 8); // 1 square ahead
+        int oneStep = pawnIdx + (moveDir * 8);
         if (oneStep >= 0 && oneStep < 64 && board[oneStep] == 0) {
             movesBuffer[movesBufferIdx++] = oneStep;
 
-            boolean startPos = (pawnWhite && pawnIdx >= 8 && pawnIdx <= 15) || // check if pawn hasnt moved from starting square
+            boolean startPos = (pawnWhite && pawnIdx >= 8 && pawnIdx <= 15) ||
                     (!pawnWhite && pawnIdx >= 48 && pawnIdx <= 55);
             int twoStep = pawnIdx + (moveDir * 16);
-            if (startPos && board[twoStep] == 0) { // if true -> pawn can move 2 squares ahead
+            if (startPos && board[twoStep] == 0) {
                 movesBuffer[movesBufferIdx++] = twoStep;
             }
         }
 
-        for (int offset : PAWN_CAPTURE) { // capture move logic
+        for (int offset : PAWN_CAPTURE) {
             int targetIdx = pawnIdx + (moveDir * offset);
             if (targetIdx >= 0 && targetIdx < 64) {
                 if (Math.abs((targetIdx % 8) - file) == 1) {
                     int targetPiece = board[targetIdx];
                     if (targetPiece != 0 &&
-                            (targetPiece & Methods.COLOR_MASK) != (piece & Methods.COLOR_MASK)) { // check if opp exists in square
+                            (targetPiece & Methods.COLOR_MASK) != (piece & Methods.COLOR_MASK)) {
                         movesBuffer[movesBufferIdx++] = targetIdx;
                     }
                 }
             }
         }
 
-        return finishMoves(movesBuffer, movesBufferIdx); // return an array of correct size
+        // En passant
+        int colorMask = piece & Methods.COLOR_MASK;
+        int epTarget = Methods.checkEnPassant(board, lastMoveOriginIdx, lastMoveTargetIdx, colorMask);
+        if (epTarget >= 0) {
+            if (Math.abs((epTarget % 8) - file) == 1 && epTarget / 8 == pawnIdx / 8 + moveDir) { // en passant detection and addition
+                movesBuffer[movesBufferIdx++] = epTarget;
+            }
+        }
+
+        return finishMoves(movesBuffer, movesBufferIdx);
     }
 
     public static int[] KnightMoves(int[] board, int knightIdx) {
@@ -135,15 +144,53 @@ public class Moves {
 
     public static int[] KingMoves(int[] board, int kingIdx, boolean kingMoved,
                                   boolean leftRookMoved, boolean rightRookMoved, int colorMask) {
-        int[] movesBuffer = new int[10]; // king has 8 possible moves + 2 * castling
+        int[] movesBuffer = new int[10]; // 8 normal + 2 castling
         int movesBufferIdx = 0;
         int piece = board[kingIdx];
         int startFile = kingIdx % 8;
+
+        // Normal king moves
         for (int offset : KING_OFFSETS) {
             int target = kingIdx + offset;
-            if (target >= 0 && target < 64 && Math.abs((target % 8) - startFile) <= 1) { // file check
+            if (target >= 0 && target < 64 && Math.abs((target % 8) - startFile) <= 1) {
                 if (board[target] == 0 || (board[target] & Methods.COLOR_MASK) != (piece & Methods.COLOR_MASK)) {
                     movesBuffer[movesBufferIdx++] = target;
+                }
+            }
+        }
+
+        // Castling — only allowed when the king has not moved and is not currently in check
+        if (!kingMoved && !Methods.isSquareAttacked(board, kingIdx, colorMask)) {
+            // Kingside castling (right)
+            // Squares between king (e-file=4) and rook (h-file=7) must be empty: f(5) and g(6)
+            if (!rightRookMoved) {
+                int f = kingIdx + 1; // f-file square
+                int g = kingIdx + 2; // g-file square (king lands here)
+                int rookSquare = kingIdx + 3; // h-file rook
+                if (board[f] == 0 && board[g] == 0
+                        && board[rookSquare] != 0
+                        && (board[rookSquare] & Methods.TYPE_MASK) == Methods.ROOK
+                        && (board[rookSquare] & Methods.COLOR_MASK) == colorMask
+                        && !Methods.isSquareAttacked(board, f, colorMask)  // king cannot pass through check
+                        && !Methods.isSquareAttacked(board, g, colorMask)) {
+                    movesBuffer[movesBufferIdx++] = g; // king's castling destination
+                }
+            }
+
+            // Queenside castling (left)
+            // Squares between king (e-file=4) and rook (a-file=0) must be empty: d(3), c(2), b(1)
+            if (!leftRookMoved) {
+                int d = kingIdx - 1; // d-file
+                int c = kingIdx - 2; // c-file (king lands here)
+                int b = kingIdx - 3; // b-file (rook passes through, only needs to be empty)
+                int rookSquare = kingIdx - 4; // a-file rook
+                if (board[d] == 0 && board[c] == 0 && board[b] == 0
+                        && board[rookSquare] != 0
+                        && (board[rookSquare] & Methods.TYPE_MASK) == Methods.ROOK
+                        && (board[rookSquare] & Methods.COLOR_MASK) == colorMask
+                        && !Methods.isSquareAttacked(board, d, colorMask)  // king cannot pass through check
+                        && !Methods.isSquareAttacked(board, c, colorMask)) {
+                    movesBuffer[movesBufferIdx++] = c; // king's castling destination
                 }
             }
         }
@@ -172,12 +219,32 @@ public class Moves {
         board[targetIdx] = capturedPiece; // normal capture
     }
 
-    public static boolean checkAfterMove(int[] board, int pieceIdx, int targetIdx, int colorMask) { // check if move puts own king in check, used to validate moves
-        int target = move(board, pieceIdx, targetIdx); // move
-        int kingIdx = Methods.findKing(board, colorMask); // find king since its possible king may have moved place
-        boolean check = Methods.inCheck(board, kingIdx); // check if king in check
-        undoMove(board, pieceIdx, targetIdx, target); // undo move
-        return check; // return if move places king in check
+    public static boolean checkAfterMove(int[] board, int pieceIdx, int targetIdx, int colorMask) {
+        int piece = board[pieceIdx];
+        int pieceType = piece & Methods.TYPE_MASK;
+
+        int epCapturedIdx = -1; // detect en passant
+        int epCapturedPiece = 0;
+        if (pieceType == Methods.PAWN) {
+            int fileDiff = Math.abs((targetIdx % 8) - (pieceIdx % 8));
+            int rankDiff = Math.abs((targetIdx / 8) - (pieceIdx / 8));
+            if (fileDiff == 1 && rankDiff == 1 && board[targetIdx] == 0) {
+                epCapturedIdx = pieceIdx + (targetIdx % 8) - (pieceIdx % 8); // the capture
+                epCapturedPiece = board[epCapturedIdx];
+                board[epCapturedIdx] = 0; // temporarily remove for check detection
+            }
+        }
+
+        int target = move(board, pieceIdx, targetIdx);
+        int kingIdx = Methods.findKing(board, colorMask);
+        boolean check = Methods.inCheck(board, kingIdx);
+        undoMove(board, pieceIdx, targetIdx, target);
+
+        if (epCapturedIdx >= 0) { // restore en passant
+            board[epCapturedIdx] = epCapturedPiece;
+        }
+
+        return check;
     }
 
     public static HashMap<Integer, int[]> allColorMoves(int[] board, int colorMask, int lastMoveOriginIdx, int lastMoveTargetIdx,

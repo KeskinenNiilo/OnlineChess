@@ -141,8 +141,16 @@ public class Methods {
         if (checkPromotion(board, targetIdx)) board[targetIdx] = (board[targetIdx] & COLOR_MASK) | promotePiece;
     }
 
-    public static int enPassant(int[] board, int lastMoveOriginIdx, int lastMoveTargetIdx) {
-        // for future iteration
-        return -1;
+    public static int checkEnPassant(int[] board, int lastMoveOriginIdx, int lastMoveTargetIdx, int colorMask) {
+        if (lastMoveOriginIdx < 0 || lastMoveTargetIdx < 0) return -1; // safety params
+
+        int movedPiece = board[lastMoveTargetIdx];.
+        if ((movedPiece & TYPE_MASK) != PAWN) return -1; // must be pawn
+        if ((movedPiece & COLOR_MASK) == colorMask) return -1; // must be the opposite color
+
+        int rowDiff = Math.abs(lastMoveOriginIdx / 8 - lastMoveTargetIdx / 8); // must have been a 2 square jump
+        if (rowDiff != 2) return -1; // safety check for files
+        int direction = (colorMask == WHITE_MASK) ? 1 : -1; // white captures upward, black downward
+        return lastMoveTargetIdx + (direction * 8); // en passant capable square
     }
 }

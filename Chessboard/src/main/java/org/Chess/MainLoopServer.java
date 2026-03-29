@@ -53,10 +53,10 @@ public class MainLoopServer {
         lastMoveOrigin = 0;
         lastMoveTarget = 0;
         HashMap<Integer, int[]> rawMoves = Moves.allColorMoves(
-            mainBoard.boardState,
-            mainBoard.turnMask,
-            lastMoveOrigin, lastMoveTarget,
-            false, false, false
+                mainBoard.boardState,
+                mainBoard.turnMask,
+                lastMoveOrigin, lastMoveTarget,
+                false, false, false
         );
         validMovesBuffer = Moves.validateAllColorMoves(mainBoard.boardState, rawMoves, mainBoard.turnMask);
         // convert and send valid moves to white
@@ -75,6 +75,41 @@ public class MainLoopServer {
 
         updateMovementFlags(moveOrigin, moveTarget);
         Moves.move(mainBoard.boardState, moveOrigin, moveTarget);
+
+        // --- Castling: move the rook alongside the king ---
+        int movedPieceType = mainBoard.boardState[moveTarget] & Methods.TYPE_MASK;
+        if (movedPieceType == Methods.KING) {
+            int fileDiff = (moveTarget % 8) - (moveOrigin % 8);
+            if (fileDiff == 2) {
+                // Kingside: rook moves from h-file to f-file
+                int rookOrigin = moveOrigin + 3;
+                int rookTarget = moveOrigin + 1;
+                Moves.move(mainBoard.boardState, rookOrigin, rookTarget);
+            } else if (fileDiff == -2) {
+                // Queenside: rook moves from a-file to d-file
+                int rookOrigin = moveOrigin - 4;
+                int rookTarget = moveOrigin - 1;
+                Moves.move(mainBoard.boardState, rookOrigin, rookTarget);
+            }
+        }
+
+        // --- En passant: remove the captured pawn ---
+        if (movedPieceType == Methods.PAWN) {
+            int fileDiff = Math.abs((moveTarget % 8) - (moveOrigin % 8));
+            int rankDiff = Math.abs((moveTarget / 8) - (moveOrigin / 8));
+            // Diagonal move to an empty square means en passant
+            if (fileDiff == 1 && rankDiff == 1) {
+                // The captured pawn is on the same rank as the origin, same file as the target
+                int capturedPawnIdx = moveOrigin + (moveTarget % 8) - (moveOrigin % 8);
+                // Only remove it if it really is an opponent pawn (guard against normal diagonal captures)
+                int capturedPiece = mainBoard.boardState[capturedPawnIdx];
+                int moverColor = mainBoard.boardState[moveTarget] & Methods.COLOR_MASK;
+                if ((capturedPiece & Methods.TYPE_MASK) == Methods.PAWN
+                        && (capturedPiece & Methods.COLOR_MASK) != moverColor) {
+                    mainBoard.boardState[capturedPawnIdx] = 0;
+                }
+            }
+        }
 
         if(Methods.checkPromotion(mainBoard.boardState, moveTarget)) {
             Methods.promote(mainBoard.boardState, moveTarget, Methods.QUEEN);
@@ -96,13 +131,13 @@ public class MainLoopServer {
         int effectiveOrigin = (lastMoveOrigin == -1) ? 0 : lastMoveOrigin;
 
         HashMap<Integer, int[]> rawMoves = Moves.allColorMoves(
-            mainBoard.boardState,
-            mainBoard.turnMask,
-            effectiveOrigin,
-            effectiveTarget,
-            isWhiteTurn ? whiteKingMoved : blackKingMoved,
-            isWhiteTurn ? whiteLeftRookMoved : blackLeftRookMoved,
-            isWhiteTurn ? whiteRightRookMoved : blackRightRookMoved
+                mainBoard.boardState,
+                mainBoard.turnMask,
+                effectiveOrigin,
+                effectiveTarget,
+                isWhiteTurn ? whiteKingMoved : blackKingMoved,
+                isWhiteTurn ? whiteLeftRookMoved : blackLeftRookMoved,
+                isWhiteTurn ? whiteRightRookMoved : blackRightRookMoved
         );
         validMovesBuffer = Moves.validateAllColorMoves(mainBoard.boardState, rawMoves, mainBoard.turnMask);
 
@@ -110,9 +145,9 @@ public class MainLoopServer {
     }
 
     private void checkGameOver() {
-    // 1. Find the king of the player whose turn it is now
+        // 1. Find the king of the player whose turn it is now
         int kingIdx = Methods.findKing(mainBoard.boardState, mainBoard.turnMask);
-        
+
         // 2. Check if that king is currently under attack
         boolean inCheck = Methods.isSquareAttacked(mainBoard.boardState, kingIdx, mainBoard.turnMask);
 
@@ -120,8 +155,8 @@ public class MainLoopServer {
         if (validMovesBuffer.isEmpty()) {
             if (inCheck) {
                 this.checkMate = true;
-                System.out.println("Checkmate detected for: " + 
-                    (mainBoard.turnMask == Methods.WHITE_MASK ? "White" : "Black"));
+                System.out.println("Checkmate detected for: " +
+                        (mainBoard.turnMask == Methods.WHITE_MASK ? "White" : "Black"));
             } else {
                 this.staleMate = true;
                 System.out.println("Stalemate detected.");
@@ -207,4 +242,3 @@ public class MainLoopServer {
         return false;
     }
 }
-
