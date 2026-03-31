@@ -84,7 +84,7 @@ public class Moves {
                 }
             }
         }
-
+/*
         // En passant
         int colorMask = piece & Methods.COLOR_MASK;
         int epTarget = Methods.checkEnPassant(board, lastMoveOriginIdx, lastMoveTargetIdx, colorMask);
@@ -93,7 +93,7 @@ public class Moves {
                 movesBuffer[movesBufferIdx++] = epTarget;
             }
         }
-
+         */
         return finishMoves(movesBuffer, movesBufferIdx);
     }
 

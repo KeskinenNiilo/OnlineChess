@@ -1,11 +1,6 @@
 package org.Chess;
 
-
-import java.lang.reflect.Method;
 import java.util.HashMap;
-import java.util.Map;
-import java.util.logging.Handler;
-import org.Chess.Methods;
 
 public class MainLoopServer {
     public Board mainBoard;
@@ -22,6 +17,17 @@ public class MainLoopServer {
     public boolean blackLeftRookMoved;
     public boolean whiteRightRookMoved;
     public boolean blackRightRookMoved;
+    
+    // ========== ADD THESE VARIABLES ==========
+    public boolean gameOver;
+    public String winner;
+    public boolean drawOffer;
+    public String drawOfferedBy;
+    public boolean drawAccepted;
+    
+    // Material tracking
+    public int whiteMaterial;
+    public int blackMaterial;
 
     public String getPieceString(int pieceValue) {
         if (pieceValue == 0) return "empty";
@@ -40,18 +46,29 @@ public class MainLoopServer {
         };
     }
 
-    public int[] errorLoop() { // get a correct move and return in form [origin, target]
-        // here get the correct loop
-        return new int[]{-1, -1}; // temp, replace
+    public int[] errorLoop() {
+        return new int[]{-1, -1};
     }
 
     public MainLoopServer() {
         mainBoard = new Board();
         checkMate = false;
         staleMate = false;
+        
+        // Initialize game state
+        gameOver = false;
+        winner = null;
+        drawOffer = false;
+        drawOfferedBy = null;
+        drawAccepted = false;
+        
         whiteKingMoved = blackKingMoved = whiteLeftRookMoved = whiteRightRookMoved = blackLeftRookMoved = blackRightRookMoved = false;
         lastMoveOrigin = 0;
         lastMoveTarget = 0;
+        
+        // Calculate initial material
+        calculateMaterialFromBoard();
+        
         HashMap<Integer, int[]> rawMoves = Moves.allColorMoves(
                 mainBoard.boardState,
                 mainBoard.turnMask,
@@ -59,19 +76,57 @@ public class MainLoopServer {
                 false, false, false
         );
         validMovesBuffer = Moves.validateAllColorMoves(mainBoard.boardState, rawMoves, mainBoard.turnMask);
-        // convert and send valid moves to white
 
         lastMoveOrigin = -1;
         lastMoveTarget = -1;
     }
+    
+    // ========== MATERIAL TRACKING METHODS ==========
+    
+    private void calculateMaterialFromBoard() {
+        whiteMaterial = 0;
+        blackMaterial = 0;
+        
+        for (int i = 0; i < 64; i++) {
+            int piece = mainBoard.boardState[i];
+            if (piece == 0) continue;
+            
+            int pieceType = piece & Methods.TYPE_MASK;
+            int pieceColor = piece & Methods.COLOR_MASK;
+            int pieceValue = Methods.getPieceValue(pieceType);
+            
+            if (pieceColor == Methods.WHITE_MASK) {
+                whiteMaterial += pieceValue;
+            } else {
+                blackMaterial += pieceValue;
+            }
+        }
+    }
 
     public boolean handleMove(int moveOrigin, int moveTarget) {
+        // Don't allow moves if game is over
+        if (gameOver) return false;
+        
         if(!validMovesBuffer.containsKey(moveOrigin)) return false;
 
         int[] targets = validMovesBuffer.get(moveOrigin);
         boolean valid = false;
         for(int t : targets) if(t == moveTarget) valid = true;
         if(!valid) return false;
+
+        // Handle capture BEFORE moving
+        int capturedPiece = mainBoard.boardState[moveTarget];
+        int movingPiece = mainBoard.boardState[moveOrigin];
+        int pieceColor = movingPiece & Methods.COLOR_MASK;
+        
+        if (capturedPiece != 0) {
+            int capturedValue = Methods.getPieceValue(capturedPiece & Methods.TYPE_MASK);
+            if (pieceColor == Methods.WHITE_MASK) {
+                blackMaterial -= capturedValue;
+            } else {
+                whiteMaterial -= capturedValue;
+            }
+        }
 
         updateMovementFlags(moveOrigin, moveTarget);
         Moves.move(mainBoard.boardState, moveOrigin, moveTarget);
@@ -97,21 +152,35 @@ public class MainLoopServer {
         if (movedPieceType == Methods.PAWN) {
             int fileDiff = Math.abs((moveTarget % 8) - (moveOrigin % 8));
             int rankDiff = Math.abs((moveTarget / 8) - (moveOrigin / 8));
-            // Diagonal move to an empty square means en passant
             if (fileDiff == 1 && rankDiff == 1) {
-                // The captured pawn is on the same rank as the origin, same file as the target
                 int capturedPawnIdx = moveOrigin + (moveTarget % 8) - (moveOrigin % 8);
-                // Only remove it if it really is an opponent pawn (guard against normal diagonal captures)
-                int capturedPiece = mainBoard.boardState[capturedPawnIdx];
+                int capturedEnPassant = mainBoard.boardState[capturedPawnIdx];
                 int moverColor = mainBoard.boardState[moveTarget] & Methods.COLOR_MASK;
-                if ((capturedPiece & Methods.TYPE_MASK) == Methods.PAWN
-                        && (capturedPiece & Methods.COLOR_MASK) != moverColor) {
+                if ((capturedEnPassant & Methods.TYPE_MASK) == Methods.PAWN
+                        && (capturedEnPassant & Methods.COLOR_MASK) != moverColor) {
+                    // Remove the captured pawn and update material
                     mainBoard.boardState[capturedPawnIdx] = 0;
+                    if (moverColor == Methods.WHITE_MASK) {
+                        blackMaterial -= Methods.PAWN_VALUE;
+                    } else {
+                        whiteMaterial -= Methods.PAWN_VALUE;
+                    }
                 }
             }
         }
 
+        // Handle promotion
         if(Methods.checkPromotion(mainBoard.boardState, moveTarget)) {
+            int oldValue = Methods.PAWN_VALUE;
+            int newValue = Methods.QUEEN_VALUE;
+            int valueDiff = newValue - oldValue;
+            
+            if (pieceColor == Methods.WHITE_MASK) {
+                whiteMaterial += valueDiff;
+            } else {
+                blackMaterial += valueDiff;
+            }
+            
             Methods.promote(mainBoard.boardState, moveTarget, Methods.QUEEN);
         }
 
@@ -145,20 +214,19 @@ public class MainLoopServer {
     }
 
     private void checkGameOver() {
-        // 1. Find the king of the player whose turn it is now
         int kingIdx = Methods.findKing(mainBoard.boardState, mainBoard.turnMask);
-
-        // 2. Check if that king is currently under attack
         boolean inCheck = Methods.isSquareAttacked(mainBoard.boardState, kingIdx, mainBoard.turnMask);
 
-        // 3. If there are NO legal moves for the current player
         if (validMovesBuffer.isEmpty()) {
             if (inCheck) {
                 this.checkMate = true;
-                System.out.println("Checkmate detected for: " +
-                        (mainBoard.turnMask == Methods.WHITE_MASK ? "White" : "Black"));
+                this.gameOver = true;
+                this.winner = (mainBoard.turnMask == Methods.WHITE_MASK) ? "black" : "white";
+                System.out.println("Checkmate! " + winner.toUpperCase() + " wins!");
             } else {
                 this.staleMate = true;
+                this.gameOver = true;
+                this.winner = null;
                 System.out.println("Stalemate detected.");
             }
         }
@@ -180,39 +248,38 @@ public class MainLoopServer {
 
     public boolean updateGameLoop() {
         int moveOrigin = 8;
-        int moveTarget = 24; // THESE ARE TEMPS, get real moves from ui
+        int moveTarget = 24;
 
-        if (!validMovesBuffer.containsKey(moveOrigin)) { // validate moves
-            // get real moves
+        if (!validMovesBuffer.containsKey(moveOrigin)) {
             return true;
         }
-        int piece = mainBoard.boardState[moveOrigin]; // get type and color
+        int piece = mainBoard.boardState[moveOrigin];
         int type = piece & Methods.TYPE_MASK;
         int color = piece & Methods.COLOR_MASK;
 
-        if (type == Methods.KING) { // king moved
+        if (type == Methods.KING) {
             if (color == Methods.WHITE_MASK) whiteKingMoved = true;
             else blackKingMoved = true;
         }
-        if (moveOrigin == 0 || moveTarget == 0) whiteLeftRookMoved = true; // rook moved or captured
+        if (moveOrigin == 0 || moveTarget == 0) whiteLeftRookMoved = true;
         if (moveOrigin == 7 || moveTarget == 7) whiteRightRookMoved = true;
         if (moveOrigin == 56 || moveTarget == 56) blackLeftRookMoved = true;
         if (moveOrigin == 63 || moveTarget == 63) blackRightRookMoved = true;
 
-        Moves.move(mainBoard.boardState, moveOrigin, moveTarget); // move
+        Moves.move(mainBoard.boardState, moveOrigin, moveTarget);
 
-        if (Methods.checkPromotion(mainBoard.boardState, moveTarget)) { // promotion check
-            Methods.promote(mainBoard.boardState, moveTarget, Methods.QUEEN); // replace methods queen with getting promotion tupe
+        if (Methods.checkPromotion(mainBoard.boardState, moveTarget)) {
+            Methods.promote(mainBoard.boardState, moveTarget, Methods.QUEEN);
         }
 
-        lastMoveOrigin = moveOrigin; // move history
+        lastMoveOrigin = moveOrigin;
         lastMoveTarget = moveTarget;
 
-        mainBoard.changeTurnMask(); // change turn
+        mainBoard.changeTurnMask();
 
-        boolean isWhiteTurn = (mainBoard.turnMask == Methods.WHITE_MASK); // generate moves
+        boolean isWhiteTurn = (mainBoard.turnMask == Methods.WHITE_MASK);
 
-        HashMap<Integer, int[]> rawMoves = Moves.allColorMoves( // get raw moves
+        HashMap<Integer, int[]> rawMoves = Moves.allColorMoves(
                 mainBoard.boardState,
                 mainBoard.turnMask,
                 lastMoveOrigin,
@@ -222,15 +289,21 @@ public class MainLoopServer {
                 isWhiteTurn ? whiteRightRookMoved : blackRightRookMoved
         );
 
-        validMovesBuffer = Moves.validateAllColorMoves(mainBoard.boardState, rawMoves, mainBoard.turnMask); // validate
+        validMovesBuffer = Moves.validateAllColorMoves(mainBoard.boardState, rawMoves, mainBoard.turnMask);
 
-        // check game state
         int kingIdx = Methods.findKing(mainBoard.boardState, mainBoard.turnMask);
         boolean inCheck = Methods.isSquareAttacked(mainBoard.boardState, kingIdx, mainBoard.turnMask);
 
-        if (validMovesBuffer.isEmpty()) { // checkMate and stalemate
-            if (inCheck) checkMate = true;
-            else staleMate = true;
+        if (validMovesBuffer.isEmpty()) {
+            if (inCheck) {
+                checkMate = true;
+                gameOver = true;
+                winner = (mainBoard.turnMask == Methods.WHITE_MASK) ? "black" : "white";
+            } else {
+                staleMate = true;
+                gameOver = true;
+                winner = null;
+            }
             return false;
         }
 
@@ -238,7 +311,126 @@ public class MainLoopServer {
     }
 
     public boolean endGame() {
-        // code to display end game screen and return true if restart game is called
         return false;
+    }
+    
+    // ========== DRAW AND FORFEIT METHODS ==========
+    
+    public boolean offerDraw(String side) {
+        if (gameOver) {
+            System.out.println("Cannot offer draw - game already over");
+            return false;
+        }
+        if (drawOffer) {
+            System.out.println("Draw already offered");
+            return false;
+        }
+        
+        drawOffer = true;
+        drawOfferedBy = side;
+        System.out.println(side + " offers a draw");
+        return true;
+    }
+    
+    public boolean respondToDraw(String side, boolean accept) {
+        if (!drawOffer) {
+            System.out.println("No draw offer to respond to");
+            return false;
+        }
+        if (side.equals(drawOfferedBy)) {
+            System.out.println("Cannot respond to your own draw offer");
+            return false;
+        }
+        
+        if (accept) {
+            gameOver = true;
+            winner = null;
+            drawAccepted = true;
+            System.out.println("Draw accepted! Game is a draw.");
+        } else {
+            drawOffer = false;
+            drawOfferedBy = null;
+            System.out.println("Draw declined. Game continues.");
+        }
+        
+        return true;
+    }
+    
+    public boolean forfeit(String side) {
+        if (gameOver) {
+            System.out.println("Cannot forfeit - game already over");
+            return false;
+        }
+        
+        gameOver = true;
+        winner = side.equals("white") ? "black" : "white";
+        System.out.println(side + " forfeits! " + winner.toUpperCase() + " wins!");
+        return true;
+    }
+    
+    public void restartGame() {
+        // Reset board
+        mainBoard = new Board();
+        
+        // Reset all flags
+        checkMate = false;
+        staleMate = false;
+        gameOver = false;
+        winner = null;
+        drawOffer = false;
+        drawOfferedBy = null;
+        drawAccepted = false;
+        
+        whiteKingMoved = false;
+        blackKingMoved = false;
+        whiteLeftRookMoved = false;
+        blackLeftRookMoved = false;
+        whiteRightRookMoved = false;
+        blackRightRookMoved = false;
+        
+        lastMoveOrigin = -1;
+        lastMoveTarget = -1;
+        
+        // Recalculate material
+        calculateMaterialFromBoard();
+        
+        // Refresh moves
+        refreshMoves();
+        
+        System.out.println("Game restarted!");
+    }
+    
+    // ========== GETTER METHODS ==========
+    
+    public boolean isGameOver() {
+        return gameOver;
+    }
+    
+    public String getWinner() {
+        return winner;
+    }
+    
+    public boolean isDrawOffer() {
+        return drawOffer;
+    }
+    
+    public String getDrawOfferedBy() {
+        return drawOfferedBy;
+    }
+    
+    public int getWhiteMaterial() {
+        return whiteMaterial;
+    }
+    
+    public int getBlackMaterial() {
+        return blackMaterial;
+    }
+    
+    public int getMaterialBalance() {
+        return whiteMaterial - blackMaterial;
+    }
+    
+    public String getTurn() {
+        return (mainBoard.turnMask == Methods.WHITE_MASK) ? "white" : "black";
     }
 }

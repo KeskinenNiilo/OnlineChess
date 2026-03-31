@@ -8,6 +8,18 @@ let pieceElements = new Map(); // Stores { "row-col": DOMElement }
 //The text below the board, showing current turn
 let turnIndicator = document.getElementById("turn-indicator");
 
+let gameOver = false;
+let drawRequested = false;
+
+const PIECE_VALUES = {
+    "white_pawn": 1, "black_pawn": 1,
+    "white_knight": 3, "black_knight": 3,
+    "white_bishop": 3, "black_bishop": 3,
+    "white_rook": 5, "black_rook": 5,
+    "white_queen": 9, "black_queen": 9,
+    "white_king": 0, "black_king": 0
+};
+
 // Server url
 const API_URL = "http://localhost:8080/api";
 
@@ -24,10 +36,298 @@ const whitePieces = ["white_pawn", "white_rook", "white_knight", "white_bishop",
 const blackPieces = ["black_pawn", "black_rook", "black_knight", "black_bishop", "black_queen", "black_king"];
 let gameState = [];
 
-
 let currentRoom = null;
 let playerSide = "white"; 
 let currentTurn = "white";
+
+// ========== MATERIAL TRACKING FUNCTIONS ==========
+
+// Calculate material from current game state
+function calculateMaterial() {
+    let whiteTotal = 0;
+    let blackTotal = 0;
+    
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            const piece = gameState[row][col];
+            if (piece && piece !== "empty" && piece !== "") {
+                const value = PIECE_VALUES[piece] || 0;
+                if (whitePieces.includes(piece)) {
+                    whiteTotal += value;
+                } else if (blackPieces.includes(piece)) {
+                    blackTotal += value;
+                }
+            }
+        }
+    }
+    
+    return { white: whiteTotal, black: blackTotal };
+}
+
+// Update the material display in scoreboard
+function updateMaterialDisplay() {
+    const material = calculateMaterial();
+    document.getElementById('whiteMaterial').textContent = material.white;
+    document.getElementById('blackMaterial').textContent = material.black;
+}
+
+// ========== DRAW AND FORFEIT FUNCTIONS ==========
+
+// Draw button handler
+function declareDraw() {
+    if (gameOver) {
+        showStatus("Game is already over!");
+        return;
+    }
+    
+    if (currentTurn !== playerSide) {
+        showStatus("It's not your turn to request a draw!");
+        return;
+    }
+    
+    if (confirm("Do you want to offer a draw to your opponent?")) {
+        sendDrawOffer();
+    }
+}
+
+// Send draw offer to server
+async function sendDrawOffer() {
+    try {
+        const response = await fetch(`${API_URL}/draw`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room: currentRoom,
+                side: playerSide
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === "success") {
+            drawRequested = true;
+            showStatus("Draw offer sent! Waiting for opponent...");
+        } else {
+            showStatus(result.message || "Failed to send draw offer.");
+        }
+    } catch (err) {
+        showStatus("⚠️ Failed to send draw offer.");
+    }
+}
+
+// Forfeit button handler
+function forfeitGame() {
+    if (gameOver) {
+        showStatus("Game is already over!");
+        return;
+    }
+    
+    if (confirm("Are you sure you want to forfeit? This will count as a loss.")) {
+        sendForfeit();
+    }
+}
+
+// Send forfeit to server
+async function sendForfeit() {
+    try {
+        const response = await fetch(`${API_URL}/forfeit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room: currentRoom,
+                side: playerSide
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === "success") {
+            gameOver = true;
+            const winner = playerSide === "white" ? "black" : "white";
+            showStatus(`You forfeited. ${winner.toUpperCase()} wins!`);
+            
+            // Disable board interactions
+            board.style.pointerEvents = "none";
+            
+            // Update win/loss counts
+            updateWinLossCounts(winner);
+            
+            // Show restart option
+            setTimeout(() => showRestartOption(), 2000);
+        } else {
+            showStatus(result.message || "Failed to forfeit.");
+        }
+    } catch (err) {
+        showStatus("⚠️ Failed to forfeit.");
+    }
+}
+
+// Respond to draw offer
+function respondToDraw(accept) {
+    sendDrawResponse(accept);
+}
+
+// Send draw response to server
+async function sendDrawResponse(accept) {
+    try {
+        const response = await fetch(`${API_URL}/draw-response`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room: currentRoom,
+                side: playerSide,
+                accept: accept
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === "success") {
+            if (accept) {
+                gameOver = true;
+                showStatus("Draw accepted! Game is a draw.");
+                
+                // Disable board interactions
+                board.style.pointerEvents = "none";
+                
+                setTimeout(() => showRestartOption(), 2000);
+            } else {
+                showStatus("Draw declined. Game continues!");
+                drawRequested = false;
+                hideDrawPopup();
+            }
+        }
+    } catch (err) {
+        showStatus("⚠️ Failed to respond to draw offer.");
+    }
+}
+
+// Show draw offer popup
+function showDrawPopup() {
+    let popup = document.getElementById('draw-popup');
+    if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'draw-popup';
+        popup.className = 'popup';
+        popup.innerHTML = `
+            <div class="popup-content">
+                <h3>Draw Offer</h3>
+                <p>Your opponent offers a draw. Do you accept?</p>
+                <div class="popup-buttons">
+                    <button onclick="respondToDraw(true)" class="accept-btn">✓ Accept</button>
+                    <button onclick="respondToDraw(false)" class="decline-btn">✗ Decline</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(popup);
+    }
+    popup.style.display = 'flex';
+}
+
+// Hide draw popup
+function hideDrawPopup() {
+    const popup = document.getElementById('draw-popup');
+    if (popup) popup.style.display = 'none';
+}
+
+// Show restart option after game ends
+function showRestartOption() {
+    let popup = document.getElementById('restart-popup');
+    if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'restart-popup';
+        popup.className = 'popup';
+        popup.innerHTML = `
+            <div class="popup-content">
+                <h3>Game Over</h3>
+                <p id="game-over-message">The game has ended.</p>
+                <div class="popup-buttons">
+                    <button onclick="restartGame()" class="restart-btn">🔄 Play Again</button>
+                    <button onclick="returnToLobby()" class="lobby-btn">🏠 Lobby</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(popup);
+    }
+    popup.style.display = 'flex';
+}
+
+// Restart the game
+async function restartGame() {
+    try {
+        const response = await fetch(`${API_URL}/restart`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room: currentRoom })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === "success") {
+            gameOver = false;
+            drawRequested = false;
+            
+            // Re-enable board interactions
+            board.style.pointerEvents = "";
+            
+            // Get fresh board state
+            const stateResponse = await fetch(`${API_URL}/state?room=${currentRoom}`);
+            const data = await stateResponse.json();
+            
+            if (data && data.board) {
+                gameState = data.board;
+                currentTurn = data.turn;
+            }
+            
+            createBoard();
+            updateTurnUI(false);
+            updateMaterialDisplay();
+            
+            hideAllPopups();
+            showStatus("Game restarted!");
+            
+            // Restart polling
+            setTimeout(pollServer, 1500);
+        }
+    } catch (err) {
+        showStatus("⚠️ Failed to restart game.");
+    }
+}
+
+// Return to lobby
+function returnToLobby() {
+    // Re-enable board interactions
+    board.style.pointerEvents = "";
+    
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('landing-page').style.display = 'block';
+    gameOver = false;
+    drawRequested = false;
+    currentRoom = null;
+    hideAllPopups();
+    document.getElementById('join-input').value = '';
+}
+
+// Hide all popups
+function hideAllPopups() {
+    const popups = document.querySelectorAll('.popup');
+    popups.forEach(popup => popup.style.display = 'none');
+}
+
+// Update win/loss counts in scoreboard
+function updateWinLossCounts(winner) {
+    if (winner === "white") {
+        const whiteWins = document.getElementById('whiteWins');
+        const blackLosses = document.getElementById('blackLosses');
+        whiteWins.textContent = parseInt(whiteWins.textContent || 0) + 1;
+        blackLosses.textContent = parseInt(blackLosses.textContent || 0) + 1;
+    } else if (winner === "black") {
+        const blackWins = document.getElementById('blackWins');
+        const whiteLosses = document.getElementById('whiteLosses');
+        blackWins.textContent = parseInt(blackWins.textContent || 0) + 1;
+        whiteLosses.textContent = parseInt(whiteLosses.textContent || 0) + 1;
+    }
+}
 
 // call the server to create new room
 async function createRoom() {
@@ -87,6 +387,8 @@ async function setupGame(roomCode, side) {
 
     currentRoom = roomCode;
     playerSide = side;
+    gameOver = false;
+    drawRequested = false;
 
     // Sync the board with server
     try {
@@ -113,11 +415,12 @@ async function setupGame(roomCode, side) {
     document.getElementById('code-text').textContent = roomCode;
 
     // If the player's side is black, the board is rotated 180
-    if (playerSide === "black")applyPerspective();
+    if (playerSide === "black") applyPerspective();
 
     
     createBoard();// Create the board with the synced gameState
     updateTurnUI(false);//update the turn UI eg. "your turn", "opponent's turn"
+    updateMaterialDisplay();
     
     // Start polling for opponent moves
     setTimeout(pollServer, 1500);
@@ -125,9 +428,15 @@ async function setupGame(roomCode, side) {
 
 async function pollServer() {
     if (!currentRoom) {
-	setTimeout(pollServer, 2000);
-	return
-	}
+        setTimeout(pollServer, 2000);
+        return;
+    }
+    
+    // Stop polling if game is over
+    if (gameOver) {
+        console.log("Game is over, stopping polling");
+        return;
+    }
 
     try {
         //get the state of current room
@@ -138,13 +447,40 @@ async function pollServer() {
             console.warn("Rate limit hit, slowing down...");
             return;
         }
-
+        
+        // Check for draw offer
+        if (data.drawOffer && data.drawOfferedBy !== playerSide && !drawRequested && !gameOver) {
+            showDrawPopup();
+        }
+        
+        // Check if game is over from server
+        if (data.gameOver && !gameOver) {
+            gameOver = true;
+            if (data.winner) {
+                showStatus(`${data.winner.toUpperCase()} wins!`);
+                updateWinLossCounts(data.winner);
+            } else if (data.drawAccepted) {
+                showStatus("Game ended in a draw!");
+            }
+            // Disable board interactions
+            board.style.pointerEvents = "none";
+            setTimeout(() => showRestartOption(), 2000);
+            return;
+        }
         
         const isCheckmate = data.checkMate;
         
+        // Update material from server if available
+        if (data.whiteMaterial !== undefined) {
+            document.getElementById('whiteMaterial').textContent = data.whiteMaterial;
+            document.getElementById('blackMaterial').textContent = data.blackMaterial;
+        } else {
+            updateMaterialDisplay(); // Fallback to local calculation
+        }
+        
         // If the data got from the server is equal to player's side,
         // animate the opponent's move, refresh the gamestate and change turn
-        if (data.turn === playerSide && currentTurn !== playerSide) {
+        if (data.turn === playerSide && currentTurn !== playerSide && !gameOver) {
             detectAndAnimateOpponentMove(data.board);
             gameState = data.board;
             currentTurn = data.turn;
@@ -152,18 +488,25 @@ async function pollServer() {
             setTimeout(() => {
                 createBoard();
                 updateTurnUI(isCheckmate);
+                updateMaterialDisplay();
             }, 400);
         } else {
             currentTurn = data.turn;
             updateTurnUI(isCheckmate);
         }
 
-        if (isCheckmate) {
-            showStatus("checkmate.");
-            console.log("checkmate detected.");
+        if (isCheckmate && !gameOver) {
+            gameOver = true;
+            const winner = currentTurn === "white" ? "Black" : "White";
+            showStatus(`CHECKMATE! ${winner} wins!`);
+            updateWinLossCounts(winner.toLowerCase());
+            board.style.pointerEvents = "none";
+            setTimeout(() => showRestartOption(), 2000);
             return;
         }
-    } catch (e) { console.warn("Polling error:", e); }
+    } catch (e) { 
+        console.warn("Polling error:", e); 
+    }
 
     setTimeout(pollServer, 2000);
 }
@@ -182,11 +525,11 @@ function detectAndAnimateOpponentMove(newBoard) {
             if (oldPiece == newPiece) continue;
 
             // If a piece disappeared from here, it's the 'from'.
-            if (oldPiece !== "empty" && oldPiece !== "" && (newPiece === "empty" ||  newPiece === "")) {
+            if (oldPiece !== "empty" && oldPiece !== "" && (newPiece === "empty" || newPiece === "")) {
                 moveFrom = [r, c];
             }
 
-            if(newPiece.includes(opponentColor)) {
+            if (newPiece && newPiece.includes(opponentColor)) {
                 moveTo = [r, c];
             }
         }
@@ -196,19 +539,17 @@ function detectAndAnimateOpponentMove(newBoard) {
         performSlide(moveFrom[0], moveFrom[1], moveTo[0], moveTo[1]);
     } else {
         // If we can't figure out the slide, just redraw as a fallback
-        createBoard(newBoard);
+        createBoard();
     }
 }
 
 function updateTurnUI(checkMate) {
     const turnIndicator = document.getElementById("turn-indicator");
-   if (checkMate) {
-        // If it's white's turn and checkmate is true, black won.
+    if (checkMate) {
         const winner = (currentTurn === "white") ? "Black" : "White";
         turnIndicator.innerHTML = `<b style="color: red;">CHECKMATE! ${winner} wins!</b>`;
-        
-        // Disable board interactions
-        //board.style.pointerEvents = "none"; 
+        return;
+    } else if (gameOver) {
         return;
     } else {
         if (currentTurn === playerSide) {
@@ -217,15 +558,14 @@ function updateTurnUI(checkMate) {
             turnIndicator.innerHTML = "It's the opponent's turn.";
         }
     }
-
 }
 
 function applyPerspective() {
-        board.style.transform = "rotate(180deg)";
-        const style = document.createElement('style');
-        style.innerHTML = `.piece { transform: rotate(180deg); }`;
-        document.head.appendChild(style);
-    }
+    board.style.transform = "rotate(180deg)";
+    const style = document.createElement('style');
+    style.innerHTML = `.piece { transform: rotate(180deg); }`;
+    document.head.appendChild(style);
+}
 
 // 2. Creation Logic
 function createBoard() {
@@ -246,10 +586,8 @@ function createBoard() {
 
             const javaPieceName = gameState[row][col];
             const unicodeSymbol = PIECE_MAP[javaPieceName] || "";
-            // Create Piece if it exists in gameState
-            //const pieceType = gameState[row][col];
             if (unicodeSymbol) {
-                createPieceElement(row, col,unicodeSymbol, javaPieceName);
+                createPieceElement(row, col, unicodeSymbol, javaPieceName);
             }
         }
     }
@@ -280,6 +618,12 @@ function createPieceElement(row, col, unicode, javaName) {
 
 // 3. Selection Logic (The "GET" phase)
 async function handlePieceClick(row, col) {
+    // Game over check
+    if (gameOver) {
+        showStatus("Game is over! Please restart or join a new game.");
+        return;
+    }
+    
     const piece = gameState[row][col];
     const pieceColor = whitePieces.includes(piece) ? "white" : (blackPieces.includes(piece) ? "black" : null);
 
@@ -290,7 +634,6 @@ async function handlePieceClick(row, col) {
         return; // Exit early so we don't try to "re-select" the enemy piece
     }
 
-
     if(currentTurn !== playerSide) {
         showStatus("It's not your turn!");
         return;
@@ -299,7 +642,6 @@ async function handlePieceClick(row, col) {
     if (pieceColor !== playerSide) {
         return;
     }
-    const statusEl = document.getElementById('status-message');
 
     if (selectedSquare && selectedSquare.row === row && selectedSquare.col === col) {
         clearHighlights();
@@ -310,7 +652,7 @@ async function handlePieceClick(row, col) {
     selectedSquare = { row, col };
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 500); // 500ms limit
+    const timeoutId = setTimeout(() => controller.abort(), 500);
 
     try {
         const url = `${API_URL}/moves?room=${currentRoom}&x=${row}&y=${col}`;
@@ -323,7 +665,6 @@ async function handlePieceClick(row, col) {
             highlightSquares(data);
         }
 
-
         clearTimeout(timeoutId);
     } catch (err) {
         showStatus("⚠️ Connection Error: Cannot fetch moves.");
@@ -333,19 +674,17 @@ async function handlePieceClick(row, col) {
 
 function showStatus(msg) {
     const statusEl = document.getElementById('status-message');
-
     statusEl.innerHTML = `
         <span>${msg}</span>
         <button onclick="hideStatus()">✕</button>
-        `;
-        statusEl.style.display = 'flex';
-        statusEl.style.opacity = '1';
+    `;
+    statusEl.style.display = 'flex';
+    statusEl.style.opacity = '1';
 }
 
 function hideStatus() {
     const statusEl = document.getElementById('status-message');
     statusEl.style.opacity = '0';
-
     setTimeout(() => {
         if(statusEl.style.opacity === '0') statusEl.style.display = 'none';
     }, 500);
@@ -367,15 +706,17 @@ async function executeMove(fromRow, fromCol, toRow, toCol) {
         const response = await fetch(`${API_URL}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({room: currentRoom,
-                 from: [fromRow, fromCol],
-                  to: [toRow, toCol] 
+            body: JSON.stringify({
+                room: currentRoom,
+                from: [fromRow, fromCol],
+                to: [toRow, toCol] 
             })
         });
         const result = await response.json();
 
         if (result.status === "success") {
             performSlide(fromRow, fromCol, toRow, toCol);
+            updateMaterialDisplay(); // Update material after move
         } else {
             showStatus("Server: Invalid move.");
         }
@@ -390,9 +731,9 @@ function performSlide(fromRow, fromCol, toRow, toCol) {
     const pieceEl = pieceElements.get(pieceKey);
 
     if (pieceEl) {
-
         moveSound.currentTime = 0; 
         moveSound.play().catch(e => console.error("Audio play failed:", e));
+        
         // Handle Captures
         if (pieceElements.has(targetKey)) {
             const capturedEl = pieceElements.get(targetKey);
@@ -403,7 +744,7 @@ function performSlide(fromRow, fromCol, toRow, toCol) {
         pieceEl.style.top = `${toRow * 60}px`;
         pieceEl.style.left = `${toCol * 60}px`;
 
-        // UPDATE COORDINATES ON THE ELEMENT (Fixes the "Move once" bug)
+        // UPDATE COORDINATES ON THE ELEMENT
         pieceEl.dataset.row = toRow;
         pieceEl.dataset.col = toCol;
 
@@ -417,9 +758,10 @@ function performSlide(fromRow, fromCol, toRow, toCol) {
 
         currentTurn = (currentTurn === "white") ? "black" : "white";
         console.log("Next turn:", currentTurn);
+        
+        // Update material display
+        updateMaterialDisplay();
     }
-
-    
 
     clearHighlights();
 }
@@ -440,12 +782,10 @@ function clearHighlights() {
 window.addEventListener('beforeunload', () => {
     if (currentRoom && playerSide) {
         const url = `${API_URL}/leave?room=${currentRoom}&side=${playerSide}`;
-        
-        // 'keepalive: true' allows the request to outlive the page
         fetch(url, { 
             method: 'POST', 
             keepalive: true,
-            mode: 'no-cors' // Use no-cors to bypass preflight checks during shutdown
+            mode: 'no-cors'
         });
     }
 });

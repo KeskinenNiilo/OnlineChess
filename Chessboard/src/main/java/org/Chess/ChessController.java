@@ -59,6 +59,16 @@ public class ChessController {
             state.put("board", jsBoard);
             state.put("turn", (game.mainBoard.turnMask == Methods.WHITE_MASK ? "white":"black"));
             state.put("checkMate", game.checkMate);
+            state.put("staleMate", game.staleMate);
+            
+            // ========== ADD THESE NEW FIELDS ==========
+            state.put("gameOver", game.isGameOver());
+            state.put("winner", game.getWinner());
+            state.put("drawOffer", game.isDrawOffer());
+            state.put("drawOfferedBy", game.getDrawOfferedBy());
+            state.put("whiteMaterial", game.getWhiteMaterial());
+            state.put("blackMaterial", game.getBlackMaterial());
+            
             return ResponseEntity.ok(state);
         } else {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build(); // error 429
@@ -154,6 +164,129 @@ public class ChessController {
         }
 
         return Map.of("status", "player_left");
+    }
+    
+    // ========== DRAW ENDPOINTS ==========
+    
+    @PostMapping("/draw")
+    public ResponseEntity<Map<String, String>> offerDraw(@RequestBody Map<String, String> request) {
+        if(!bucket.tryConsume(1)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
+        }
+        
+        String room = request.get("room");
+        String side = request.get("side");
+        
+        MainLoopServer game = rooms.get(room);
+        if (game == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("status", "error", "message", "Room not found"));
+        }
+        
+        boolean success = game.offerDraw(side);
+        
+        if (success) {
+            System.out.println(side + " offered a draw in room: " + room);
+            return ResponseEntity.ok(Map.of("status", "success", "message", "Draw offer sent"));
+        } else {
+            return ResponseEntity.ok(Map.of("status", "error", "message", "Cannot offer draw"));
+        }
+    }
+    
+    @PostMapping("/draw-response")
+    public ResponseEntity<Map<String, String>> respondToDraw(@RequestBody Map<String, Object> request) {
+        if(!bucket.tryConsume(1)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
+        }
+        
+        String room = (String) request.get("room");
+        String side = (String) request.get("side");
+        boolean accept = (boolean) request.get("accept");
+        
+        MainLoopServer game = rooms.get(room);
+        if (game == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("status", "error", "message", "Room not found"));
+        }
+        
+        boolean success = game.respondToDraw(side, accept);
+        
+        if (success) {
+            System.out.println(side + (accept ? " accepted" : " declined") + " draw in room: " + room);
+            return ResponseEntity.ok(Map.of("status", "success", "message", accept ? "Draw accepted" : "Draw declined"));
+        } else {
+            return ResponseEntity.ok(Map.of("status", "error", "message", "Cannot respond to draw"));
+        }
+    }
+    
+    // ========== FORFEIT ENDPOINT ==========
+    
+    @PostMapping("/forfeit")
+    public ResponseEntity<Map<String, String>> forfeit(@RequestBody Map<String, String> request) {
+        if(!bucket.tryConsume(1)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
+        }
+        
+        String room = request.get("room");
+        String side = request.get("side");
+        
+        MainLoopServer game = rooms.get(room);
+        if (game == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("status", "error", "message", "Room not found"));
+        }
+        
+        boolean success = game.forfeit(side);
+        
+        if (success) {
+            System.out.println(side + " forfeited in room: " + room);
+            return ResponseEntity.ok(Map.of("status", "success", "message", "Game forfeited"));
+        } else {
+            return ResponseEntity.ok(Map.of("status", "error", "message", "Cannot forfeit"));
+        }
+    }
+    
+    // ========== RESTART ENDPOINT ==========
+    
+    @PostMapping("/restart")
+    public ResponseEntity<Map<String, String>> restartGame(@RequestBody Map<String, String> request) {
+        if(!bucket.tryConsume(1)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
+        }
+        
+        String room = request.get("room");
+        
+        MainLoopServer game = rooms.get(room);
+        if (game == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("status", "error", "message", "Room not found"));
+        }
+        
+        game.restartGame();
+        System.out.println("Game restarted in room: " + room);
+        
+        return ResponseEntity.ok(Map.of("status", "success", "message", "Game restarted"));
+    }
+    
+    // ========== MATERIAL ENDPOINT (OPTIONAL) ==========
+    
+    @GetMapping("/material")
+    public ResponseEntity<Map<String, Object>> getMaterial(@RequestParam String room) {
+        if(!bucket.tryConsume(1)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
+        }
+        
+        MainLoopServer game = rooms.get(room);
+        if (game == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        
+        Map<String, Object> material = new HashMap<>();
+        material.put("white", game.getWhiteMaterial());
+        material.put("black", game.getBlackMaterial());
+        material.put("balance", game.getMaterialBalance());
+        
+        return ResponseEntity.ok(material);
     }
 }
 

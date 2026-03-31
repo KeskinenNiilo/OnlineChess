@@ -96,7 +96,7 @@ public class Methods {
         }
 
         // Pawn Threat
-        int[] pawnThreat = (oppMask == BLACK_MASK) ? new int[]{7, 9} : new int[]{-9, -7}; // pawns can only eat dianogally
+        int[] pawnThreat = (oppMask == BLACK_MASK) ? new int[]{7, 9} : new int[]{-9, -7}; // pawns can only eat diagonally
         for (int moveDir : pawnThreat) {
             int threat = targetIdx + moveDir;
             if (threat < 0 || threat >= 64) continue; // bounds check
@@ -141,16 +141,10 @@ public class Methods {
         if (checkPromotion(board, targetIdx)) board[targetIdx] = (board[targetIdx] & COLOR_MASK) | promotePiece;
     }
 
-    public static int checkEnPassant(int[] board, int lastMoveOriginIdx, int lastMoveTargetIdx, int colorMask) {
-        if (lastMoveOriginIdx < 0 || lastMoveTargetIdx < 0) return -1; // safety params
-
-        int movedPiece = board[lastMoveTargetIdx];.
-        if ((movedPiece & TYPE_MASK) != PAWN) return -1; // must be pawn
-        if ((movedPiece & COLOR_MASK) == colorMask) return -1; // must be the opposite color
-
-        int rowDiff = Math.abs(lastMoveOriginIdx / 8 - lastMoveTargetIdx / 8); // must have been a 2 square jump
-        if (rowDiff != 2) return -1; // safety check for files
-        int direction = (colorMask == WHITE_MASK) ? 1 : -1; // white captures upward, black downward
-        return lastMoveTargetIdx + (direction * 8); // en passant capable square
+    public static int enPassant(int[] board, int lastMoveOriginIdx, int lastMoveTargetIdx) {
+        int victimPiece = board[lastMoveTargetIdx];
+        if ((victimPiece & TYPE_MASK) != PAWN) return -1;
+        if (Math.abs(lastMoveTargetIdx - lastMoveOriginIdx) != 16) return -1;
+        return (lastMoveOriginIdx + lastMoveTargetIdx) / 2;
     }
 }
