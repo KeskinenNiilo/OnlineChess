@@ -383,6 +383,10 @@ public class MainLoopServer {
     }
 
     public boolean requestRestart(String side) {
+
+        if (!this.gameOver) {
+            return true; 
+        }
         if ("white".equalsIgnoreCase(side)) {
             whiteReadyToRestart = true;
         } else if ("black".equalsIgnoreCase(side)) {
@@ -396,6 +400,7 @@ public class MainLoopServer {
             blackReadyToRestart = false;
             return true;
         }
+        addEvent(side + " wants a rematch.");
         return false;
     }
     

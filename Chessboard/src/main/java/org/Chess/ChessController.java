@@ -277,7 +277,6 @@ public class ChessController {
             return ResponseEntity.ok(Map.of("status", "success", "message", "Game restarted"));
         } else {
             // Add a log event so the other player sees someone is ready
-            game.addEvent(side + " wants a rematch."); 
             return ResponseEntity.ok(Map.of("status", "waiting", "message", "Waiting for opponent"));
     }
     }
