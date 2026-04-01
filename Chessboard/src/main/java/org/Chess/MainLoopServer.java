@@ -131,35 +131,32 @@ public class MainLoopServer {
         updateMovementFlags(moveOrigin, moveTarget);
         Moves.move(mainBoard.boardState, moveOrigin, moveTarget);
 
-        // --- Castling: move the rook alongside the king ---
+        // Castling
         int movedPieceType = mainBoard.boardState[moveTarget] & Methods.TYPE_MASK;
         if (movedPieceType == Methods.KING) {
             int fileDiff = (moveTarget % 8) - (moveOrigin % 8);
             if (fileDiff == 2) {
-                // Kingside: rook moves from h-file to f-file
-                int rookOrigin = moveOrigin + 3;
+                int rookOrigin = moveOrigin + 3; // kingside
                 int rookTarget = moveOrigin + 1;
                 Moves.move(mainBoard.boardState, rookOrigin, rookTarget);
             } else if (fileDiff == -2) {
-                // Queenside: rook moves from a-file to d-file
-                int rookOrigin = moveOrigin - 4;
+                int rookOrigin = moveOrigin - 4; // queenside
                 int rookTarget = moveOrigin - 1;
                 Moves.move(mainBoard.boardState, rookOrigin, rookTarget);
             }
         }
 
-        // --- En passant: remove the captured pawn ---
+        // En Passant
         if (movedPieceType == Methods.PAWN) {
             int fileDiff = Math.abs((moveTarget % 8) - (moveOrigin % 8));
             int rankDiff = Math.abs((moveTarget / 8) - (moveOrigin / 8));
-            if (fileDiff == 1 && rankDiff == 1) {
+            if (fileDiff == 1 && rankDiff == 1) { // must be diagonal by 1
                 int capturedPawnIdx = moveOrigin + (moveTarget % 8) - (moveOrigin % 8);
                 int capturedEnPassant = mainBoard.boardState[capturedPawnIdx];
                 int moverColor = mainBoard.boardState[moveTarget] & Methods.COLOR_MASK;
-                if ((capturedEnPassant & Methods.TYPE_MASK) == Methods.PAWN
-                        && (capturedEnPassant & Methods.COLOR_MASK) != moverColor) {
-                    // Remove the captured pawn and update material
-                    mainBoard.boardState[capturedPawnIdx] = 0;
+                if ((capturedEnPassant & Methods.TYPE_MASK) == Methods.PAWN // check that piece to be captured is a pawn
+                        && (capturedEnPassant & Methods.COLOR_MASK) != moverColor) { // and an opp
+                    mainBoard.boardState[capturedPawnIdx] = 0; // remove and update material
                     if (moverColor == Methods.WHITE_MASK) {
                         blackMaterial -= Methods.PAWN_VALUE;
                     } else {
