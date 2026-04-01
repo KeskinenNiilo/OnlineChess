@@ -205,7 +205,6 @@ public class Moves {
 
         board[targetIdx] = piece;
         board[pieceIdx] = 0;
-        System.out.println("move run"); // debug log
         return capturedPiece; // return captured piece to keep track of move functions
     }
 
@@ -263,7 +262,6 @@ public class Moves {
                 case Methods.KING -> Moves.KingMoves(board, i, kingMoved, leftRookMoved, rightRookMoved, colorMask);
                 default -> null;
             };
-            System.out.println("allColorMoves run"); // debug log
             if (possibleMoves != null) moves.put(i, possibleMoves); // if there are possible moves
         }
         return moves;

@@ -1,6 +1,8 @@
 package org.Chess;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 public class MainLoopServer {
     public Board mainBoard;
@@ -28,6 +30,16 @@ public class MainLoopServer {
     // Material tracking
     public int whiteMaterial;
     public int blackMaterial;
+
+    public boolean whiteReadyToRestart = false;
+    public boolean blackReadyToRestart = false;
+
+    public List<String> eventLog = new ArrayList<>();
+
+    public void addEvent(String message) {
+        String timestamp = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+        eventLog.add("[" + timestamp + "]" + message);
+    }
 
     public String getPieceString(int pieceValue) {
         if (pieceValue == 0) return "empty";
@@ -223,6 +235,7 @@ public class MainLoopServer {
                 this.gameOver = true;
                 this.winner = (mainBoard.turnMask == Methods.WHITE_MASK) ? "black" : "white";
                 System.out.println("Checkmate! " + winner.toUpperCase() + " wins!");
+                addEvent("Checkmate!" + winner.toUpperCase() + " wins!");
             } else {
                 this.staleMate = true;
                 this.gameOver = true;
@@ -329,6 +342,7 @@ public class MainLoopServer {
         drawOffer = true;
         drawOfferedBy = side;
         System.out.println(side + " offers a draw");
+        addEvent(side + " offers a draw");
         return true;
     }
     
@@ -347,10 +361,12 @@ public class MainLoopServer {
             winner = null;
             drawAccepted = true;
             System.out.println("Draw accepted! Game is a draw.");
+            addEvent("Draw accepted! It's a draw.");
         } else {
             drawOffer = false;
             drawOfferedBy = null;
             System.out.println("Draw declined. Game continues.");
+            addEvent("Draw declined. Game continues.");
         }
         
         return true;
@@ -365,7 +381,25 @@ public class MainLoopServer {
         gameOver = true;
         winner = side.equals("white") ? "black" : "white";
         System.out.println(side + " forfeits! " + winner.toUpperCase() + " wins!");
+        addEvent(side + " forfeited! " + winner.toUpperCase() + " wins!");
         return true;
+    }
+
+    public boolean requestRestart(String side) {
+        if ("white".equalsIgnoreCase(side)) {
+            whiteReadyToRestart = true;
+        } else if ("black".equalsIgnoreCase(side)) {
+            blackReadyToRestart = true;
+        }
+
+        if (whiteReadyToRestart && blackReadyToRestart) {
+            restartGame();
+
+            whiteReadyToRestart = false;
+            blackReadyToRestart = false;
+            return true;
+        }
+        return false;
     }
     
     public void restartGame() {
@@ -398,6 +432,7 @@ public class MainLoopServer {
         refreshMoves();
         
         System.out.println("Game restarted!");
+        addEvent("Game restarted.");
     }
     
     // ========== GETTER METHODS ==========

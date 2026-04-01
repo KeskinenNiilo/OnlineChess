@@ -258,7 +258,7 @@ async function restartGame() {
         const response = await fetch(`${API_URL}/restart`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ room: currentRoom })
+            body: JSON.stringify({ room: currentRoom, side: playerSide })
         });
         
         const result = await response.json();
@@ -285,7 +285,6 @@ async function restartGame() {
             
             hideAllPopups();
             showStatus("Game restarted!");
-            
             // Restart polling
             setTimeout(pollServer, 1500);
         }
@@ -296,6 +295,15 @@ async function restartGame() {
 
 // Return to lobby
 function returnToLobby() {
+
+    if (currentRoom && playerSide) {
+        const url = `${API_URL}/leave?room=${currentRoom}&side=${playerSide}`;
+        fetch(url, { 
+            method: 'POST', 
+            keepalive: true,
+            mode: 'no-cors'
+        });
+    }
     // Re-enable board interactions
     board.style.pointerEvents = "";
     
@@ -426,6 +434,7 @@ async function setupGame(roomCode, side) {
     setTimeout(pollServer, 1500);
 }
 
+let lastEventIdx = 0;
 async function pollServer() {
     if (!currentRoom) {
         setTimeout(pollServer, 2000);
@@ -441,11 +450,34 @@ async function pollServer() {
     try {
         //get the state of current room
         const response = await fetch(`${API_URL}/state?room=${currentRoom}`);
-        const data = await response.json();
+        
+
+        if (response.status === 404) {
+            currentRoom = null;
+            showStatus("⚠️ Room was closed or timed out.");
+            returnToLobby();
+            return;
+        }
 
         if (response.status === 429) {
             console.warn("Rate limit hit, slowing down...");
             return;
+        }
+
+        const data = await response.json();
+
+        // Check for new events from the server
+        if(data.events && data.events.length > lastEventIdx) {
+            for (let i = lastEventIdx; i < data.events.length; i++) {
+                const msg = data.events[i];
+
+                let color = null;
+                if (msg.includes("joined")) color = "green";
+                if (msg.includes("left")) color = "red";
+
+                addLog(msg, color);
+            }
+            lastEventIdx = data.events.length;
         }
         
         // Check for draw offer
@@ -752,6 +784,19 @@ function performSlide(fromRow, fromCol, toRow, toCol) {
         pieceElements.delete(pieceKey);
         pieceElements.set(targetKey, pieceEl);
 
+        // --- PROMOTION LOGIC START ---
+        let pieceName = gameState[fromRow][fromCol];
+        
+        // If White pawn reaches row 0 OR Black pawn reaches row 7
+        if (pieceName === "white_pawn" && toRow === 0) {
+            pieceName = "white_queen";
+            pieceEl.textContent = PIECE_MAP["white_queen"];
+        } else if (pieceName === "black_pawn" && toRow === 7) {
+            pieceName = "black_queen";
+            pieceEl.textContent = PIECE_MAP["black_queen"];
+        }
+        // --- PROMOTION LOGIC END ---
+
         // Update logical state
         gameState[toRow][toCol] = gameState[fromRow][fromCol];
         gameState[fromRow][fromCol] = "";
@@ -777,6 +822,26 @@ function highlightSquares(moves) {
 function clearHighlights() {
     selectedSquare = null;
     board.querySelectorAll(".square.highlight").forEach(sq => sq.classList.remove("highlight"));
+}
+
+function toggleLog() {
+    const log = document.getElementById("log-container");
+    const icon = document.getElementById("log-toggle-icon");
+    log.classList.toggle("collapsed");
+    icon.textContent = log.classList.contains("collapsed") ? "▲" : "▼";
+}
+
+function addLog(message, color = null) {
+    const logBody = document.getElementById("log-body");
+    const entry = document.createElement("div");
+    entry.classList.add("log-entry");
+    
+    if (color) {
+        entry.style.color = color;
+    }
+    
+    entry.textContent = message;
+    logBody.prepend(entry); // Newest on top
 }
 
 window.addEventListener('beforeunload', () => {

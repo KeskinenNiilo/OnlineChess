@@ -38,6 +38,7 @@ public class ChessController {
         rooms.put(code, game);
 
         System.out.println("room created: "+ code);
+        game.addEvent("-- Room created --");
         Map<String, String> response = new HashMap<>();
         response.put("room", code);
         return ResponseEntity.ok(response);
@@ -47,7 +48,7 @@ public class ChessController {
     public ResponseEntity<Map<String, Object>> getState(@RequestParam String room) {
         if(bucket.tryConsume(1)) {
             MainLoopServer game = rooms.get(room);
-            if (game == null) throw new RuntimeException("Room not found.");
+            if (game == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
 
             String[][] jsBoard = new String[8][8];
             for(int i = 0; i < 64; i++) {
@@ -60,6 +61,9 @@ public class ChessController {
             state.put("turn", (game.mainBoard.turnMask == Methods.WHITE_MASK ? "white":"black"));
             state.put("checkMate", game.checkMate);
             state.put("staleMate", game.staleMate);
+
+            // event log
+            state.put("events", game.eventLog);
             
             // ========== ADD THESE NEW FIELDS ==========
             state.put("gameOver", game.isGameOver());
@@ -133,11 +137,13 @@ public class ChessController {
         if (!game.whiteJoined) {
             game.whiteJoined = true;
             System.out.println("White player joined in room: " + room);
+            game.addEvent("White player joined.");
             return ResponseEntity.ok(Map.of("status", "success", "side", "white"));
             
         } else if (!game.blackJoined) {
             game.blackJoined = true;
             System.out.println("Black player joined in room: " + room);
+            game.addEvent("Black player joined.");
             return ResponseEntity.ok(Map.of("status", "success", "side", "black"));
         }
 
@@ -155,6 +161,7 @@ public class ChessController {
         if ("white".equalsIgnoreCase(side)) game.whiteJoined = false;
         if ("black".equalsIgnoreCase(side)) game.blackJoined = false;
         System.out.println(side + " left room: " + room);
+        game.addEvent(side + " left.");
 
         // If both players have left, delete the room.
         if (!game.whiteJoined && !game.blackJoined){
@@ -255,17 +262,24 @@ public class ChessController {
         }
         
         String room = request.get("room");
+        String side = request.get("side");
         
         MainLoopServer game = rooms.get(room);
         if (game == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("status", "error", "message", "Room not found"));
         }
+        boolean restarted = game.requestRestart(side);
+
         
-        game.restartGame();
-        System.out.println("Game restarted in room: " + room);
-        
-        return ResponseEntity.ok(Map.of("status", "success", "message", "Game restarted"));
+        if (restarted) {
+            System.out.println("Game restarted in room: " + room);
+            return ResponseEntity.ok(Map.of("status", "success", "message", "Game restarted"));
+        } else {
+            // Add a log event so the other player sees someone is ready
+            game.addEvent(side + " wants a rematch."); 
+            return ResponseEntity.ok(Map.of("status", "waiting", "message", "Waiting for opponent"));
+    }
     }
     
     // ========== MATERIAL ENDPOINT (OPTIONAL) ==========
