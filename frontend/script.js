@@ -499,7 +499,7 @@ async function pollServer() {
             setTimeout(() => showRestartOption(), 2000);
             return;
         }
-        
+        const isCheck = data.checkMate || data.inCheck;
         const isCheckmate = data.checkMate;
         
         // Update material from server if available
@@ -509,6 +509,8 @@ async function pollServer() {
         } else {
             updateMaterialDisplay(); // Fallback to local calculation
         }
+
+        updateCheckStatus(isCheck);
         
         // If the data got from the server is equal to player's side,
         // animate the opponent's move, refresh the gamestate and change turn
@@ -588,6 +590,28 @@ function updateTurnUI(checkMate) {
             turnIndicator.innerHTML = "It's your turn.";
         } else {
             turnIndicator.innerHTML = "It's the opponent's turn.";
+        }
+    }
+}
+
+function updateCheckStatus(isCheck) {
+    document.querySelectorAll('.square.check-warning').forEach(sq =>{
+        sq.classList.remove('check-warning');
+    });
+
+    if (!isCheck) return;
+
+    const kingType = (currentTurn === "white") ? "white_king" : "black_king";
+
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            if (gameState[r][c] === kingType) {
+                const kingSquare = board.querySelector(`.square[data-row='${r}'][data-col='${c}']`);
+                if (kingSquare) {
+                    kingSquare.classList.add('check-warning');
+                }
+                return; // Found it, stop searching
+            }
         }
     }
 }

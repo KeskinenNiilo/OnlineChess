@@ -60,6 +60,7 @@ public class ChessController {
             state.put("board", jsBoard);
             state.put("turn", (game.mainBoard.turnMask == Methods.WHITE_MASK ? "white":"black"));
             state.put("checkMate", game.checkMate);
+            state.put("inCheck", game.inCheck);
             state.put("staleMate", game.staleMate);
 
             // event log

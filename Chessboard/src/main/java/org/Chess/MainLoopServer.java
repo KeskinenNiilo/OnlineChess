@@ -8,6 +8,7 @@ public class MainLoopServer {
     public Board mainBoard;
     public boolean whiteJoined = false;
     public boolean blackJoined = false;
+    public boolean inCheck = false;
     public boolean checkMate;
     public boolean staleMate;
     public HashMap<Integer, int[]> validMovesBuffer;
@@ -224,7 +225,7 @@ public class MainLoopServer {
 
     private void checkGameOver() {
         int kingIdx = Methods.findKing(mainBoard.boardState, mainBoard.turnMask);
-        boolean inCheck = Methods.isSquareAttacked(mainBoard.boardState, kingIdx, mainBoard.turnMask);
+        inCheck = Methods.isSquareAttacked(mainBoard.boardState, kingIdx, mainBoard.turnMask);
 
         if (validMovesBuffer.isEmpty()) {
             if (inCheck) {
