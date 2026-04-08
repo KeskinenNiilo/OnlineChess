@@ -389,9 +389,15 @@ public class MainLoopServer {
             return true; 
         }
         if ("white".equalsIgnoreCase(side)) {
-            whiteReadyToRestart = true;
+            if (!whiteReadyToRestart) {
+                whiteReadyToRestart = true;
+                addEvent("White wants a rematch.");
+            }
         } else if ("black".equalsIgnoreCase(side)) {
-            blackReadyToRestart = true;
+            if (!blackReadyToRestart) {
+                blackReadyToRestart = true;
+                addEvent("Black wants a rematch.");
+            }
         }
 
         if (whiteReadyToRestart && blackReadyToRestart) {
@@ -401,7 +407,6 @@ public class MainLoopServer {
             blackReadyToRestart = false;
             return true;
         }
-        addEvent(side + " wants a rematch.");
         return false;
     }
     
@@ -417,6 +422,7 @@ public class MainLoopServer {
         drawOffer = false;
         drawOfferedBy = null;
         drawAccepted = false;
+        inCheck = false;
         
         whiteKingMoved = false;
         blackKingMoved = false;

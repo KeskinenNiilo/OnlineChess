@@ -252,8 +252,14 @@ function showRestartOption() {
     popup.style.display = 'flex';
 }
 
-// Restart the game
 async function restartGame() {
+    const btn = document.querySelector('.restart-btn');
+    const originalText = btn ? btn.textContent : "🔄 Play Again";
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = "⌛ Waiting...";
+    }
+
     try {
         const response = await fetch(`${API_URL}/restart`, {
             method: 'POST',
@@ -261,35 +267,13 @@ async function restartGame() {
             body: JSON.stringify({ room: currentRoom, side: playerSide })
         });
         
-        const result = await response.json();
-        
-        if (result.status === "success") {
-            gameOver = false;
-            drawRequested = false;
-            
-            // Re-enable board interactions
-            board.style.pointerEvents = "";
-            
-            // Get fresh board state
-            const stateResponse = await fetch(`${API_URL}/state?room=${currentRoom}`);
-            const data = await stateResponse.json();
-            
-            if (data && data.board) {
-                gameState = data.board;
-                currentTurn = data.turn;
-            }
-            
-            createBoard();
-            updateTurnUI(false);
-            updateMaterialDisplay();
-            
-            hideAllPopups();
-            showStatus("Game restarted!");
-            // Restart polling
-            setTimeout(pollServer, 1500);
-        }
+
     } catch (err) {
-        showStatus("⚠️ Failed to restart game.");
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = "🔄 Play Again";
+        }
+        showStatus("⚠️ Failed to reach server.");
     }
 }
 
@@ -440,12 +424,6 @@ async function pollServer() {
         setTimeout(pollServer, 2000);
         return;
     }
-    
-    // Stop polling if game is over
-    if (gameOver) {
-        console.log("Game is over, stopping polling");
-        return;
-    }
 
     try {
         //get the state of current room
@@ -466,6 +444,28 @@ async function pollServer() {
 
         const data = await response.json();
 
+        // Restart detection
+        if (data.gameOver === false && (gameOver === true || board.style.pointerEvents === "none")) {
+            gameOver = false;
+            drawRequested = false;
+            board.style.pointerEvents = "";
+
+            gameState = data.board;
+            currentTurn = data.turn;
+
+            createBoard();
+            updateTurnUI(false);
+            updateMaterialDisplay();
+            hideAllPopups();
+
+            const btn = document.querySelector('.restart-btn');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = "🔄 Play Again";
+            }
+            
+        }
+
         // Check for new events from the server
         if(data.events && data.events.length > lastEventIdx) {
             for (let i = lastEventIdx; i < data.events.length; i++) {
@@ -474,11 +474,15 @@ async function pollServer() {
                 let color = null;
                 if (msg.includes("joined")) color = "green";
                 if (msg.includes("left")) color = "red";
+                if (msg.includes("wants a rematch")) color = "cyan";
 
                 addLog(msg, color);
             }
             lastEventIdx = data.events.length;
         }
+
+        const isCheck = data.checkMate || data.inCheck;
+        const isCheckmate = data.checkMate;
         
         // Check for draw offer
         if (data.drawOffer && data.drawOfferedBy !== playerSide && !drawRequested && !gameOver) {
@@ -488,6 +492,7 @@ async function pollServer() {
         // Check if game is over from server
         if (data.gameOver && !gameOver) {
             gameOver = true;
+            updateCheckStatus(isCheck, data.turn);
             if (data.winner) {
                 showStatus(`${data.winner.toUpperCase()} wins!`);
                 updateWinLossCounts(data.winner);
@@ -499,8 +504,7 @@ async function pollServer() {
             setTimeout(() => showRestartOption(), 2000);
             return;
         }
-        const isCheck = data.checkMate || data.inCheck;
-        const isCheckmate = data.checkMate;
+        
         
         // Update material from server if available
         if (data.whiteMaterial !== undefined) {
@@ -510,7 +514,7 @@ async function pollServer() {
             updateMaterialDisplay(); // Fallback to local calculation
         }
 
-        updateCheckStatus(isCheck);
+        updateCheckStatus(isCheck, data.turn);
         
         // If the data got from the server is equal to player's side,
         // animate the opponent's move, refresh the gamestate and change turn
@@ -536,7 +540,6 @@ async function pollServer() {
             updateWinLossCounts(winner.toLowerCase());
             board.style.pointerEvents = "none";
             setTimeout(() => showRestartOption(), 2000);
-            return;
         }
     } catch (e) { 
         console.warn("Polling error:", e); 
@@ -594,14 +597,14 @@ function updateTurnUI(checkMate) {
     }
 }
 
-function updateCheckStatus(isCheck) {
+function updateCheckStatus(isCheck, serverTurn) {
     document.querySelectorAll('.square.check-warning').forEach(sq =>{
         sq.classList.remove('check-warning');
     });
 
     if (!isCheck) return;
 
-    const kingType = (currentTurn === "white") ? "white_king" : "black_king";
+    const kingType = (serverTurn === "white") ? "white_king" : "black_king";
 
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
@@ -647,6 +650,8 @@ function createBoard() {
             }
         }
     }
+
+    updateCheckStatus(false, "");
 }
 
 function createPieceElement(row, col, unicode, javaName) {
