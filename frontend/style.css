@@ -19,34 +19,34 @@ h1 {
 .menu-box {
     background: #1e2227;
     padding: 40px;
-    border: 4px solid #3e4451; /* Thicker box border */
+    border: 4px solid #3e4451;
     text-align: center;
-    box-shadow: 10px 10px 0px #000; /* Flat, blocky shadow */
+    box-shadow: 10px 10px 0px #000;
 }
 
-.main-btn,#landing-page button {
+.main-btn, #landing-page button {
     background: transparent;
     color: white;
-    font-size: 1.5rem;      /* Larger text */
+    font-size: 1.5rem;
     font-weight: bold;
-    padding: 15px 40px;     /* Larger button size */
-    border: 3px solid #61afef; /* Thick outline */
-    border-radius: 0;       /* Square edges */
+    padding: 15px 40px;
+    border: 3px solid #61afef;
+    border-radius: 0;
     cursor: pointer;
     text-transform: uppercase;
     transition: all 0.1s ease;
     margin: 10px 0;
     display: block;
-    width: 100%;            /* Buttons fill the container */
+    width: 100%;
 }
 
-.main-btn:hover,#landing-page button:hover {
+.main-btn:hover, #landing-page button:hover {
     background: #61afef;
     color: #1e2227;
     box-shadow: 5px 5px 0px #ffffff;
 }
 
-.main-btn:active,#landing-page button:active {
+.main-btn:active, #landing-page button:active {
     transform: translate(0, 0);
     box-shadow: none;
 }
@@ -54,18 +54,18 @@ h1 {
 #join-input {
     background: #282c34;
     color: #abb2bf;
-    border: 3px solid #3e4451; /* Thick outline to match */
-    border-radius: 0;         /* Square edges */
+    border: 3px solid #3e4451;
+    border-radius: 0;
     padding: 15px;
     font-size: 1.2rem;
     width: 100%;
-    box-sizing: border-box;   /* Ensures padding doesn't break width */
+    box-sizing: border-box;
     margin-bottom: 10px;
 }
 
 #join-input:focus {
     outline: none;
-    border-color: #98c379; /* Green focus highlight */
+    border-color: #98c379;
 }
 
 .divider {
@@ -109,14 +109,12 @@ h1 {
     border: 2px solid #61afef;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     text-align: center;
-    width: 100%;              /* match scoreboard width */
-    box-sizing: border-box;   /* prevents overflow */
+    width: 100%;
+    box-sizing: border-box;
     display: flex;
     justify-content: center;
     align-items: center;
-    
 }
-
 
 .spacer {
     width: 150px;
@@ -129,19 +127,19 @@ h1 {
 }
 
 #status-message {
-    position: fixed; 
-    top: 30px; 
+    position: fixed;
+    top: 30px;
     right: 20px;
-    background: #ff4444; 
-    color: white; 
-    padding: 12px 20px; 
+    background: #ff4444;
+    color: white;
+    padding: 12px 20px;
     border-radius: 8px;
     display: flex;
     align-items: center;
     gap: 15px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     z-index: 1000;
-    display: none; 
+    display: none;
 }
 
 #status-message button {
@@ -163,7 +161,7 @@ h1 {
     grid-template-columns: repeat(8, 60px);
     grid-template-rows: repeat(8, 60px);
     border: 5px solid #222;
-    position: relative; 
+    position: relative;
 }
 
 .square {
@@ -174,18 +172,21 @@ h1 {
 .square.light { background-color: #f0d9b5; }
 .square.dark { background-color: #b58863; }
 
-#pieces-layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none; /* Allows clicks to pass through to the squares/pieces */
+/* Check warning highlight - SINGLE DEFINITION */
+.square.check-warning {
+    background-color: rgba(255, 0, 0, 0.4) !important;
+    box-shadow: inset 0 0 0 3px #ff0000;
+    animation: pulse 1s infinite;
 }
 
-/* Modified .piece for Animation */
+@keyframes pulse {
+    0% { box-shadow: inset 0 0 0 3px #ff0000; }
+    50% { box-shadow: inset 0 0 0 6px #ff0000; }
+    100% { box-shadow: inset 0 0 0 3px #ff0000; }
+}
+
 .piece {
-    position: absolute; /* Piece now moves based on pixels, not grid cells */
+    position: absolute;
     width: 60px;
     height: 60px;
     display: flex;
@@ -195,16 +196,13 @@ h1 {
     cursor: pointer;
     z-index: 10;
     transition: top 0.3s ease-in-out, left 0.3s ease-in-out;
-    user-select: none; 
+    user-select: none;
 }
 
 .square.highlight {
-    /* Using a background color or a circle is often cleaner than an outline for animations */
     background-color: rgba(0, 0, 0, 0.15) !important;
     box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.5);
 }
-
-
 
 .board-section {
     display: flex;
@@ -284,7 +282,7 @@ h1 {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    width: 280px;   /* SAME as scoreboard */
+    width: 280px;
 }
 
 @media (max-width: 900px) {
@@ -294,8 +292,6 @@ h1 {
     }
 }
 
-/* Add this to your style.css file */
-
 /* Popup styles */
 .popup {
     display: none;
@@ -304,7 +300,7 @@ h1 {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.7);
     z-index: 2000;
     justify-content: center;
     align-items: center;
@@ -393,53 +389,71 @@ h1 {
     box-shadow: 0 5px 15px rgba(149, 165, 166, 0.3);
 }
 
+/* Game log container - SINGLE DEFINITION */
 #log-container {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    width: 250px;
-    background: #2c3e50;
-    color: white;
+    width: 280px;
+    background: #1e2227;
+    border: 2px solid #3e4451;
     border-radius: 8px;
-    border: 1px solid #444;
-    font-family: sans-serif;
-    transition: height 0.3s ease;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
 }
 
 #log-header {
-    padding: 10px;
-    background: #34495e;
+    background: #2c313a;
+    padding: 10px 12px;
     cursor: pointer;
     display: flex;
     justify-content: space-between;
+    align-items: center;
     font-weight: bold;
+    color: #61afef;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#log-header:hover {
+    background: #3e4451;
 }
 
 #log-body {
-    height: 200px;
+    height: 180px;
     overflow-y: auto;
-    padding: 10px;
-    font-size: 0.9em;
+    padding: 8px;
+    font-size: 11px;
+    font-family: monospace;
     background: #1a252f;
 }
 
-/* When collapsed */
 #log-container.collapsed #log-body {
     display: none;
 }
 
 .log-entry {
-    margin-bottom: 5px;
-    border-bottom: 1px solid #333;
-    padding-bottom: 2px;
+    padding: 4px 6px;
+    border-bottom: 1px solid #3e4451;
+    margin-bottom: 2px;
+    word-break: break-word;
 }
 
-.log-time { color: #95a5a6; font-size: 0.8em; margin-right: 5px; }
+.log-entry:last-child {
+    border-bottom: none;
+}
 
-.square.check-warning {
-    background-color: #ff4d4d !important;
-    box-shadow: inset 0 0 15px 5px rgba(255, 0, 0, 0.5);
+/* Scrollbar styling */
+#log-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+#log-body::-webkit-scrollbar-track {
+    background: #2c313a;
+    border-radius: 4px;
+}
+
+#log-body::-webkit-scrollbar-thumb {
+    background: #61afef;
+    border-radius: 4px;
 }

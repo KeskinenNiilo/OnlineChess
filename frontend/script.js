@@ -202,26 +202,38 @@ async function sendDrawResponse(accept) {
     }
 }
 
+
 // Show draw offer popup
 function showDrawPopup() {
-    let popup = document.getElementById('draw-popup');
-    if (!popup) {
-        popup = document.createElement('div');
-        popup.id = 'draw-popup';
-        popup.className = 'popup';
-        popup.innerHTML = `
-            <div class="popup-content">
-                <h3>Draw Offer</h3>
-                <p>Your opponent offers a draw. Do you accept?</p>
-                <div class="popup-buttons">
-                    <button onclick="respondToDraw(true)" class="accept-btn">✓ Accept</button>
-                    <button onclick="respondToDraw(false)" class="decline-btn">✗ Decline</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(popup);
+    // Remove existing popup if any
+    const existingPopup = document.getElementById('draw-popup');
+    if (existingPopup) {
+        existingPopup.remove();
     }
+    
+    const popup = document.createElement('div');
+    popup.id = 'draw-popup';
+    popup.className = 'popup';
+    popup.innerHTML = `
+        <div class="popup-content">
+            <h3>Draw Offer</h3>
+            <p>Your opponent offers a draw. Do you accept?</p>
+            <div class="popup-buttons">
+                <button id="accept-draw-btn" class="accept-btn">✓ Accept</button>
+                <button id="decline-draw-btn" class="decline-btn">✗ Decline</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(popup);
     popup.style.display = 'flex';
+    
+    document.getElementById('accept-draw-btn').addEventListener('click', () => {
+        respondToDraw(true);
+    });
+    
+    document.getElementById('decline-draw-btn').addEventListener('click', () => {
+        respondToDraw(false);
+    });
 }
 
 // Hide draw popup
@@ -232,33 +244,53 @@ function hideDrawPopup() {
 
 // Show restart option after game ends
 function showRestartOption() {
-    let popup = document.getElementById('restart-popup');
-    if (!popup) {
-        popup = document.createElement('div');
-        popup.id = 'restart-popup';
-        popup.className = 'popup';
-        popup.innerHTML = `
-            <div class="popup-content">
-                <h3>Game Over</h3>
-                <p id="game-over-message">The game has ended.</p>
-                <div class="popup-buttons">
-                    <button onclick="restartGame()" class="restart-btn">🔄 Play Again</button>
-                    <button onclick="returnToLobby()" class="lobby-btn">🏠 Lobby</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(popup);
+    // Remove existing popup if any
+    const existingPopup = document.getElementById('restart-popup');
+    if (existingPopup) {
+        existingPopup.remove();
     }
+    
+    const popup = document.createElement('div');
+    popup.id = 'restart-popup';
+    popup.className = 'popup';
+    popup.innerHTML = `
+        <div class="popup-content">
+            <h3>Game Over</h3>
+            <p id="game-over-message">The game has ended.</p>
+            <div class="popup-buttons">
+                <button id="play-again-btn" class="restart-btn">🔄 Play Again</button>
+                <button id="lobby-btn" class="lobby-btn">🏠 Lobby</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(popup);
     popup.style.display = 'flex';
+    
+    // Remove any existing listeners by cloning and replacing
+    const playAgainBtn = document.getElementById('play-again-btn');
+    const lobbyBtn = document.getElementById('lobby-btn');
+    
+    const newPlayAgainBtn = playAgainBtn.cloneNode(true);
+    const newLobbyBtn = lobbyBtn.cloneNode(true);
+    playAgainBtn.parentNode.replaceChild(newPlayAgainBtn, playAgainBtn);
+    lobbyBtn.parentNode.replaceChild(newLobbyBtn, lobbyBtn);
+    
+    newPlayAgainBtn.addEventListener('click', () => {
+        restartGame();
+    });
+    
+    newLobbyBtn.addEventListener('click', () => {
+        returnToLobby();
+    });
 }
 
 async function restartGame() {
-    const btn = document.querySelector('.restart-btn');
-    const originalText = btn ? btn.textContent : "🔄 Play Again";
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = "⌛ Waiting...";
-    }
+    const btn = document.getElementById('play-again-btn');
+    if (!btn) return;
+    
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "⌛ Waiting...";
 
     try {
         const response = await fetch(`${API_URL}/restart`, {
@@ -267,19 +299,52 @@ async function restartGame() {
             body: JSON.stringify({ room: currentRoom, side: playerSide })
         });
         
-
-    } catch (err) {
-        if (btn) {
+        const result = await response.json();
+        
+        if (result.status === "success") {
+            // Reset local game state
+            gameOver = false;
+            drawRequested = false;
+            board.style.pointerEvents = "";
+            lastEventIdx = 0;
+            
+            // Get fresh board state
+            const stateResponse = await fetch(`${API_URL}/state?room=${currentRoom}`);
+            const data = await stateResponse.json();
+            
+            if (data && data.board) {
+                gameState = data.board;
+                currentTurn = data.turn;
+            }
+            
+            // Update UI
+            createBoard();
+            updateTurnUI(false);
+            updateMaterialDisplay();
+            hideAllPopups();
+            clearHighlights();
+            
+            showStatus("Game restarted! It's " + (currentTurn === "white" ? "White's" : "Black's") + " turn.");
+            addLog(playerSide + " restarted the game!", "#00bcd4");
+            
+            // DON'T remove the popup immediately - keep "Waiting..." showing
+            // The popup will be removed when the game actually restarts
+            // Just keep the button disabled for now
+            
+        } else {
+            showStatus(result.message || "Failed to restart game.");
             btn.disabled = false;
-            btn.textContent = "🔄 Play Again";
+            btn.textContent = originalText;
         }
+    } catch (err) {
+        console.error("Restart error:", err);
         showStatus("⚠️ Failed to reach server.");
+        btn.disabled = false;
+        btn.textContent = originalText;
     }
 }
-
 // Return to lobby
 function returnToLobby() {
-
     if (currentRoom && playerSide) {
         const url = `${API_URL}/leave?room=${currentRoom}&side=${playerSide}`;
         fetch(url, { 
@@ -288,9 +353,8 @@ function returnToLobby() {
             mode: 'no-cors'
         });
     }
-    // Re-enable board interactions
-    board.style.pointerEvents = "";
     
+    board.style.pointerEvents = "";
     document.getElementById('game-screen').style.display = 'none';
     document.getElementById('landing-page').style.display = 'block';
     gameOver = false;
@@ -298,6 +362,10 @@ function returnToLobby() {
     currentRoom = null;
     hideAllPopups();
     document.getElementById('join-input').value = '';
+    
+    // Also remove any restart popup
+    const popup = document.getElementById('restart-popup');
+    if (popup) popup.remove();
 }
 
 // Hide all popups
@@ -419,6 +487,7 @@ async function setupGame(roomCode, side) {
 }
 
 let lastEventIdx = 0;
+
 async function pollServer() {
     if (!currentRoom) {
         setTimeout(pollServer, 2000);
@@ -426,10 +495,8 @@ async function pollServer() {
     }
 
     try {
-        //get the state of current room
         const response = await fetch(`${API_URL}/state?room=${currentRoom}`);
         
-
         if (response.status === 404) {
             currentRoom = null;
             showStatus("⚠️ Room was closed or timed out.");
@@ -439,16 +506,19 @@ async function pollServer() {
 
         if (response.status === 429) {
             console.warn("Rate limit hit, slowing down...");
+            setTimeout(pollServer, 3000);
             return;
         }
 
         const data = await response.json();
 
-        // Restart detection
-        if (data.gameOver === false && (gameOver === true || board.style.pointerEvents === "none")) {
+        // RESTART DETECTION - Server says game is NOT over but we think it IS over (opponent restarted)
+        if (data.gameOver === false && gameOver === true) {
+            console.log("Game restarted detected! Opponent restarted the game.");
             gameOver = false;
             drawRequested = false;
             board.style.pointerEvents = "";
+            lastEventIdx = 0;
 
             gameState = data.board;
             currentTurn = data.turn;
@@ -458,96 +528,132 @@ async function pollServer() {
             updateMaterialDisplay();
             hideAllPopups();
 
-            const btn = document.querySelector('.restart-btn');
+            // Re-enable restart button if it was disabled
+            const btn = document.getElementById('play-again-btn');
             if (btn) {
                 btn.disabled = false;
                 btn.textContent = "🔄 Play Again";
             }
             
+            // Also remove any restart popup
+            const popup = document.getElementById('restart-popup');
+            if (popup) popup.remove();
+            
+            showStatus("Opponent restarted the game! It's " + (currentTurn === "white" ? "White's" : "Black's") + " turn.");
+            addLog("Game restarted by opponent!", "#00bcd4");
+            setTimeout(pollServer, 1500);
+            return;
         }
 
-        // Check for new events from the server
-        if(data.events && data.events.length > lastEventIdx) {
-            for (let i = lastEventIdx; i < data.events.length; i++) {
-                const msg = data.events[i];
-
-                let color = null;
-                if (msg.includes("joined")) color = "green";
-                if (msg.includes("left")) color = "red";
-                if (msg.includes("wants a rematch")) color = "cyan";
-
-                addLog(msg, color);
+        // Check if game is over from server
+        if (data.gameOver && !gameOver) {
+            gameOver = true;
+            
+            if (data.winner) {
+                showStatus(`${data.winner.toUpperCase()} wins!`);
+                updateWinLossCounts(data.winner);
+                addLog(`${data.winner.toUpperCase()} wins the game!`, "#f1c40f");
+            } else if (data.drawAccepted) {
+                showStatus("Game ended in a draw!");
+                addLog("Game ended in a draw!", "#f1c40f");
             }
-            lastEventIdx = data.events.length;
+            
+            board.style.pointerEvents = "none";
+            setTimeout(() => showRestartOption(), 2000);
+            setTimeout(pollServer, 5000);
+            return;
         }
-
-        const isCheck = data.checkMate || data.inCheck;
-        const isCheckmate = data.checkMate;
+        
+        // Update material display
+        if (data.whiteMaterial !== undefined) {
+            document.getElementById('whiteMaterial').textContent = data.whiteMaterial;
+            document.getElementById('blackMaterial').textContent = data.blackMaterial;
+        }
+        
+        // Update check status
+        const isInCheck = data.inCheck || false;
+        const isCheckmate = data.checkMate || false;
+        updateCheckStatus(isInCheck, data.turn);
+        updateTurnUI(isCheckmate);
         
         // Check for draw offer
         if (data.drawOffer && data.drawOfferedBy !== playerSide && !drawRequested && !gameOver) {
             showDrawPopup();
         }
         
-        // Check if game is over from server
-        if (data.gameOver && !gameOver) {
-            gameOver = true;
-            updateCheckStatus(isCheck, data.turn);
-            if (data.winner) {
-                showStatus(`${data.winner.toUpperCase()} wins!`);
-                updateWinLossCounts(data.winner);
-            } else if (data.drawAccepted) {
-                showStatus("Game ended in a draw!");
+        // Check if board has changed (opponent made a move)
+        let boardChanged = false;
+        if (gameState.length > 0 && data.board) {
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (gameState[r][c] !== data.board[r][c]) {
+                        boardChanged = true;
+                        break;
+                    }
+                }
+                if (boardChanged) break;
             }
-            // Disable board interactions
-            board.style.pointerEvents = "none";
-            setTimeout(() => showRestartOption(), 2000);
-            return;
         }
         
-        
-        // Update material from server if available
-        if (data.whiteMaterial !== undefined) {
-            document.getElementById('whiteMaterial').textContent = data.whiteMaterial;
-            document.getElementById('blackMaterial').textContent = data.blackMaterial;
-        } else {
-            updateMaterialDisplay(); // Fallback to local calculation
-        }
-
-        updateCheckStatus(isCheck, data.turn);
-        
-        // If the data got from the server is equal to player's side,
-        // animate the opponent's move, refresh the gamestate and change turn
-        if (data.turn === playerSide && currentTurn !== playerSide && !gameOver) {
-            detectAndAnimateOpponentMove(data.board);
+        // If board changed and it's our turn now (opponent just moved)
+        if (boardChanged && !gameOver && data.turn === playerSide && currentTurn !== playerSide) {
+            console.log("Opponent moved, animating...");
+            
+            // Find the move
+            let moveFrom = null;
+            let moveTo = null;
+            
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const oldPiece = gameState[r][c];
+                    const newPiece = data.board[r][c];
+                    
+                    if (oldPiece !== newPiece) {
+                        if (oldPiece !== "empty" && oldPiece !== "" && (newPiece === "empty" || newPiece === "")) {
+                            moveFrom = [r, c];
+                        }
+                        if (newPiece !== "empty" && newPiece !== "") {
+                            moveTo = [r, c];
+                        }
+                    }
+                }
+            }
+            
+            // Update game state
             gameState = data.board;
             currentTurn = data.turn;
-
-            setTimeout(() => {
+            
+            // Animate the move
+            if (moveFrom && moveTo) {
+                performSlide(moveFrom[0], moveFrom[1], moveTo[0], moveTo[1]);
+            } else {
                 createBoard();
-                updateTurnUI(isCheckmate);
-                updateMaterialDisplay();
-            }, 400);
-        } else {
+            }
+            
+            updateMaterialDisplay();
+        } else if (!gameOver) {
+            // Just update turn if board hasn't changed
             currentTurn = data.turn;
-            updateTurnUI(isCheckmate);
         }
-
+        
+        // Handle checkmate
         if (isCheckmate && !gameOver) {
             gameOver = true;
             const winner = currentTurn === "white" ? "Black" : "White";
             showStatus(`CHECKMATE! ${winner} wins!`);
             updateWinLossCounts(winner.toLowerCase());
+            addLog(`CHECKMATE! ${winner} wins!`, "#f1c40f");
             board.style.pointerEvents = "none";
             setTimeout(() => showRestartOption(), 2000);
+            return;
         }
+        
     } catch (e) { 
         console.warn("Polling error:", e); 
     }
 
-    setTimeout(pollServer, 2000);
+    setTimeout(pollServer, 1500);
 }
-
 function detectAndAnimateOpponentMove(newBoard) {
     let moveFrom = null;
     let moveTo = null;
@@ -862,6 +968,8 @@ function toggleLog() {
 
 function addLog(message, color = null) {
     const logBody = document.getElementById("log-body");
+    if (!logBody) return;
+    
     const entry = document.createElement("div");
     entry.classList.add("log-entry");
     
@@ -869,8 +977,14 @@ function addLog(message, color = null) {
         entry.style.color = color;
     }
     
-    entry.textContent = message;
+    const timestamp = new Date().toLocaleTimeString();
+    entry.textContent = `[${timestamp}] ${message}`;
     logBody.prepend(entry); // Newest on top
+    
+    // Keep only last 50 entries
+    while (logBody.children.length > 50) {
+        logBody.removeChild(logBody.lastChild);
+    }
 }
 
 window.addEventListener('beforeunload', () => {
