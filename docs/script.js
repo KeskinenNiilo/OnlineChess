@@ -400,7 +400,7 @@ async function createRoom() {
             showStatus("⚠️ Failed to create room.")
             return;
         }
-
+        // Run setupGame with data from server.
         const data = await response.json();
         setupGame(data.room, "white");
 
@@ -429,6 +429,7 @@ async function joinRoom() {
         const data = await response.json();
 
         if (response.ok && data.status === "success") {
+            // Sync the game with server
             await setupGame(code, data.side);
         } else {
             showStatus(data.message); //returns either room full, or doesn't exist.
@@ -509,11 +510,12 @@ async function pollServer() {
 
         const data = await response.json();
 
-        // Check for new events from the server
+        // Check for new log events from the server
         if(data.events && data.events.length > lastEventIdx) {
             for (let i = lastEventIdx; i < data.events.length; i++) {
                 const msg = data.events[i];
 
+                // Color coding
                 let color = null;
                 if (msg.includes("joined")) color = "green";
                 if (msg.includes("left")) color = "red";
@@ -524,7 +526,6 @@ async function pollServer() {
             lastEventIdx = data.events.length;
         }
 
-        // RESTART DETECTION - Server says game is NOT over but we think it IS over (opponent restarted)
         if (data.gameOver === false && gameOver === true) {
             console.log("Game restarted detected! Opponent restarted the game.");
             gameOver = false;
@@ -540,14 +541,12 @@ async function pollServer() {
             updateMaterialDisplay();
             hideAllPopups();
 
-            // Re-enable restart button if it was disabled
             const btn = document.getElementById('play-again-btn');
             if (btn) {
                 btn.disabled = false;
                 btn.textContent = "🔄 Play Again";
             }
             
-            // Also remove any restart popup
             const popup = document.getElementById('restart-popup');
             if (popup) popup.remove();
             
@@ -575,7 +574,7 @@ async function pollServer() {
             document.getElementById('blackMaterial').textContent = data.blackMaterial;
         }
         
-        // Update check status
+        // Update check status and turnUI
         const isCheck = data.inCheck || data.checkMate;
         const isCheckmate = data.checkMate;
         updateCheckStatus(isCheck, data.turn);
@@ -648,8 +647,8 @@ function detectAndAnimateOpponentMove(newBoard) {
     }
 }
 
+// Handling the turn UI text
 function updateTurnUI(checkMate) {
-    const turnIndicator = document.getElementById("turn-indicator");
     if (checkMate) {
         const winner = (currentTurn === "white") ? "Black" : "White";
         turnIndicator.innerHTML = `<b style="color: red;">CHECKMATE! ${winner} wins!</b>`;
@@ -665,6 +664,7 @@ function updateTurnUI(checkMate) {
     }
 }
 
+// Highlight the king square, if in check.
 function updateCheckStatus(isCheck, serverTurn) {
     document.querySelectorAll('.square.check-warning').forEach(sq =>{
         sq.classList.remove('check-warning');
@@ -687,6 +687,7 @@ function updateCheckStatus(isCheck, serverTurn) {
     }
 }
 
+// For black player, rotate the board 180
 function applyPerspective() {
     board.style.transform = "rotate(180deg)";
     const style = document.createElement('style');
@@ -694,7 +695,7 @@ function applyPerspective() {
     document.head.appendChild(style);
 }
 
-// 2. Creation Logic
+// Rendering the chessboard
 function createBoard() {
     board.innerHTML = ""; // Clear board
     pieceElements.clear(); // Clear the map
@@ -707,7 +708,7 @@ function createBoard() {
             square.dataset.row = row;
             square.dataset.col = col;
             
-            // Squares handle moving to a destination
+            // SAdding event listener to each square
             square.addEventListener("click", () => handleSquareClick(row, col));
             board.appendChild(square);
 
@@ -722,6 +723,7 @@ function createBoard() {
     updateCheckStatus(false, "");
 }
 
+// Create an element for each piece
 function createPieceElement(row, col, unicode, javaName) {
     const piece = document.createElement("div");
     piece.classList.add("piece");
@@ -745,7 +747,7 @@ function createPieceElement(row, col, unicode, javaName) {
     pieceElements.set(`${row}-${col}`, piece);
 }
 
-// 3. Selection Logic (The "GET" phase)
+// handling the piece selection
 async function handlePieceClick(row, col) {
     // Game over check
     if (gameOver) {
@@ -756,21 +758,24 @@ async function handlePieceClick(row, col) {
     const piece = gameState[row][col];
     const pieceColor = whitePieces.includes(piece) ? "white" : (blackPieces.includes(piece) ? "black" : null);
 
-    // New capture logic
+    // Capture logic
     const targetSquare = board.querySelector(`.square[data-row='${row}'][data-col='${col}']`);
     if (selectedSquare && targetSquare.classList.contains("highlight")) {
         await executeMove(selectedSquare.row, selectedSquare.col, row, col);
         return; // Exit early so we don't try to "re-select" the enemy piece
     }
 
+    // if the player tries to select a piece on opponent's turn.
     if(currentTurn !== playerSide) {
         showStatus("It's not your turn!");
         return;
     }
 
+    // if the player tries to click opponent's piece, do nothing.
     if (pieceColor !== playerSide) {
         return;
     }
+
 
     if (selectedSquare && selectedSquare.row === row && selectedSquare.col === col) {
         clearHighlights();
@@ -782,7 +787,7 @@ async function handlePieceClick(row, col) {
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 500);
-
+    // fetch possible moves from server.
     try {
         const url = `${API_URL}/moves?room=${currentRoom}&x=${row}&y=${col}`;
         const response = await fetch(url);
@@ -801,16 +806,25 @@ async function handlePieceClick(row, col) {
     }
 }
 
+// status popuppien luominen
+let statusTimeout;
 function showStatus(msg) {
     const statusEl = document.getElementById('status-message');
+
+    clearTimeout(statusTimeout);
+
     statusEl.innerHTML = `
         <span>${msg}</span>
         <button onclick="hideStatus()">✕</button>
     `;
     statusEl.style.display = 'flex';
     statusEl.style.opacity = '1';
+
+    // sulje 6s kuluttua automaattisesti
+    statusTimeout = setTimeout(hideStatus, 6000);
 }
 
+// status popuppien piilotus.
 function hideStatus() {
     const statusEl = document.getElementById('status-message');
     statusEl.style.opacity = '0';
@@ -819,7 +833,7 @@ function hideStatus() {
     }, 500);
 }
 
-// 4. Movement Logic (The "POST" phase)
+// ruutujen klikkaamisen käsittely
 async function handleSquareClick(toRow, toCol) {
     const targetSquare = board.querySelector(`.square[data-row='${toRow}'][data-col='${toCol}']`);
     
@@ -830,6 +844,7 @@ async function handleSquareClick(toRow, toCol) {
     }
 }
 
+// siirron suoritus.
 async function executeMove(fromRow, fromCol, toRow, toCol) {
     try {
         const response = await fetch(`${API_URL}/move`, {
@@ -854,6 +869,7 @@ async function executeMove(fromRow, fromCol, toRow, toCol) {
     }
 }
 
+// nappuloiden siirto
 function performSlide(fromRow, fromCol, toRow, toCol) {
     const pieceKey = `${fromRow}-${fromCol}`;
     const targetKey = `${toRow}-${toCol}`;
@@ -873,7 +889,7 @@ function performSlide(fromRow, fromCol, toRow, toCol) {
         pieceEl.style.top = `${toRow * 60}px`;
         pieceEl.style.left = `${toCol * 60}px`;
 
-        // UPDATE COORDINATES ON THE ELEMENT
+        // update piece element coordinates
         pieceEl.dataset.row = toRow;
         pieceEl.dataset.col = toCol;
 
@@ -881,7 +897,7 @@ function performSlide(fromRow, fromCol, toRow, toCol) {
         pieceElements.delete(pieceKey);
         pieceElements.set(targetKey, pieceEl);
 
-        // --- PROMOTION LOGIC START ---
+        // promotion logic
         let pieceName = gameState[fromRow][fromCol];
         
         // If White pawn reaches row 0 OR Black pawn reaches row 7
@@ -892,7 +908,6 @@ function performSlide(fromRow, fromCol, toRow, toCol) {
             pieceName = "black_queen";
             pieceEl.textContent = PIECE_MAP["black_queen"];
         }
-        // --- PROMOTION LOGIC END ---
 
         // Update logical state
         gameState[toRow][toCol] = gameState[fromRow][fromCol];
@@ -908,7 +923,7 @@ function performSlide(fromRow, fromCol, toRow, toCol) {
     clearHighlights();
 }
 
-// 5. Helpers
+// square highlighting
 function highlightSquares(moves) {
     moves.forEach(([r, c]) => {
         const sq = board.querySelector(`.square[data-row='${r}'][data-col='${c}']`);
@@ -921,6 +936,7 @@ function clearHighlights() {
     board.querySelectorAll(".square.highlight").forEach(sq => sq.classList.remove("highlight"));
 }
 
+// log container toggle (collapsing)
 function toggleLog() {
     const log = document.getElementById("log-container");
     const icon = document.getElementById("log-toggle-icon");
@@ -928,6 +944,7 @@ function toggleLog() {
     icon.textContent = log.classList.contains("collapsed") ? "▲" : "▼";
 }
 
+// adding a new log entry
 function addLog(message, color = null) {
     const logBody = document.getElementById("log-body");
     if (!logBody) return;
@@ -948,6 +965,7 @@ function addLog(message, color = null) {
     }
 }
 
+// leave the room on refresh.
 window.addEventListener('beforeunload', () => {
     if (currentRoom && playerSide) {
         const url = `${API_URL}/leave?room=${currentRoom}&side=${playerSide}`;
