@@ -21,7 +21,7 @@ const PIECE_VALUES = {
 };
 
 // Server url
-const API_URL = "http://localhost:8080/api";
+const API_URL = "https://onlinechess-ey0p.onrender.com/api";
 
 // Mapping the pieces from java names to unicode for the frontend
 const PIECE_MAP = {
