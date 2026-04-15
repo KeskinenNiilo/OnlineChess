@@ -84,16 +84,6 @@ public class Moves {
                 }
             }
         }
-/*
-        // En passant
-        int colorMask = piece & Methods.COLOR_MASK;
-        int epTarget = Methods.checkEnPassant(board, lastMoveOriginIdx, lastMoveTargetIdx, colorMask);
-        if (epTarget >= 0) {
-            if (Math.abs((epTarget % 8) - file) == 1 && epTarget / 8 == pawnIdx / 8 + moveDir) { // en passant detection and addition
-                movesBuffer[movesBufferIdx++] = epTarget;
-            }
-        }
-         */
         return finishMoves(movesBuffer, movesBufferIdx);
     }
 
@@ -159,38 +149,35 @@ public class Moves {
             }
         }
 
-        // Castling — only allowed when the king has not moved and is not currently in check
+        // Castling
         if (!kingMoved && !Methods.isSquareAttacked(board, kingIdx, colorMask)) {
-            // Kingside castling (right)
-            // Squares between king (e-file=4) and rook (h-file=7) must be empty: f(5) and g(6)
-            if (!rightRookMoved) {
-                int f = kingIdx + 1; // f-file square
-                int g = kingIdx + 2; // g-file square (king lands here)
-                int rookSquare = kingIdx + 3; // h-file rook
+            if (!rightRookMoved) { // Kingside
+                int f = kingIdx + 1;
+                int g = kingIdx + 2;
+                int rookSquare = kingIdx + 3;
                 if (board[f] == 0 && board[g] == 0
                         && board[rookSquare] != 0
                         && (board[rookSquare] & Methods.TYPE_MASK) == Methods.ROOK
                         && (board[rookSquare] & Methods.COLOR_MASK) == colorMask
                         && !Methods.isSquareAttacked(board, f, colorMask)  // king cannot pass through check
                         && !Methods.isSquareAttacked(board, g, colorMask)) {
-                    movesBuffer[movesBufferIdx++] = g; // king's castling destination
+                    movesBuffer[movesBufferIdx++] = g; // king castle square
                 }
             }
 
-            // Queenside castling (left)
-            // Squares between king (e-file=4) and rook (a-file=0) must be empty: d(3), c(2), b(1)
+            // Queenside
             if (!leftRookMoved) {
-                int d = kingIdx - 1; // d-file
-                int c = kingIdx - 2; // c-file (king lands here)
-                int b = kingIdx - 3; // b-file (rook passes through, only needs to be empty)
-                int rookSquare = kingIdx - 4; // a-file rook
+                int d = kingIdx - 1;
+                int c = kingIdx - 2;
+                int b = kingIdx - 3;
+                int rookSquare = kingIdx - 4;
                 if (board[d] == 0 && board[c] == 0 && board[b] == 0
                         && board[rookSquare] != 0
                         && (board[rookSquare] & Methods.TYPE_MASK) == Methods.ROOK
                         && (board[rookSquare] & Methods.COLOR_MASK) == colorMask
                         && !Methods.isSquareAttacked(board, d, colorMask)  // king cannot pass through check
                         && !Methods.isSquareAttacked(board, c, colorMask)) {
-                    movesBuffer[movesBufferIdx++] = c; // king's castling destination
+                    movesBuffer[movesBufferIdx++] = c; // king castle square
                 }
             }
         }
