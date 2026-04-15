@@ -15,7 +15,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "*") // Allows JS to talk to Java
+@CrossOrigin(origins = "https://keskinenniilo.github.io") // Allows JS to talk to Java
 public class ChessController {
 
     // RoomCode -> {"board": Chessboard, "white:": Boolean, "black": Boolean}
