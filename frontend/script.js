@@ -576,69 +576,27 @@ async function pollServer() {
         }
         
         // Update check status
-        const isInCheck = data.inCheck || false;
-        const isCheckmate = data.checkMate || false;
-        updateCheckStatus(isInCheck, data.turn);
+        const isCheck = data.inCheck || data.checkMate;
+        const isCheckmate = data.checkMate;
+        updateCheckStatus(isCheck, data.turn);
         updateTurnUI(isCheckmate);
         
         // Check for draw offer
         if (data.drawOffer && data.drawOfferedBy !== playerSide && !drawRequested && !gameOver) {
             showDrawPopup();
         }
+
+        if (data.turn === playerSide && currentTurn !== playerSide && !gameOver) {
+            detectAndAnimateOpponentMove(data.board);
         
-        // Check if board has changed (opponent made a move)
-        let boardChanged = false;
-        if (gameState.length > 0 && data.board) {
-            for (let r = 0; r < 8; r++) {
-                for (let c = 0; c < 8; c++) {
-                    if (gameState[r][c] !== data.board[r][c]) {
-                        boardChanged = true;
-                        break;
-                    }
-                }
-                if (boardChanged) break;
-            }
-        }
-        
-        // If board changed and it's our turn now (opponent just moved)
-        if (boardChanged && !gameOver && data.turn === playerSide && currentTurn !== playerSide) {
-            console.log("Opponent moved, animating...");
-            
-            // Find the move
-            let moveFrom = null;
-            let moveTo = null;
-            
-            for (let r = 0; r < 8; r++) {
-                for (let c = 0; c < 8; c++) {
-                    const oldPiece = gameState[r][c];
-                    const newPiece = data.board[r][c];
-                    
-                    if (oldPiece !== newPiece) {
-                        if (oldPiece !== "empty" && oldPiece !== "" && (newPiece === "empty" || newPiece === "")) {
-                            moveFrom = [r, c];
-                        }
-                        if (newPiece !== "empty" && newPiece !== "") {
-                            moveTo = [r, c];
-                        }
-                    }
-                }
-            }
-            
             // Update game state
             gameState = data.board;
             currentTurn = data.turn;
-            
-            // Animate the move
-            if (moveFrom && moveTo) {
-                performSlide(moveFrom[0], moveFrom[1], moveTo[0], moveTo[1]);
-            } else {
-                createBoard();
-            }
-            
             updateMaterialDisplay();
-        } else if (!gameOver) {
+        } else {
             // Just update turn if board hasn't changed
             currentTurn = data.turn;
+            updateTurnUI(isCheckmate);
         }
         
         // Handle checkmate
