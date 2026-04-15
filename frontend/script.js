@@ -324,9 +324,6 @@ async function restartGame() {
             hideAllPopups();
             clearHighlights();
             
-            showStatus("Game restarted! It's " + (currentTurn === "white" ? "White's" : "Black's") + " turn.");
-            addLog(playerSide + " restarted the game!", "#00bcd4");
-            
             // DON'T remove the popup immediately - keep "Waiting..." showing
             // The popup will be removed when the game actually restarts
             // Just keep the button disabled for now
@@ -512,6 +509,21 @@ async function pollServer() {
 
         const data = await response.json();
 
+        // Check for new events from the server
+        if(data.events && data.events.length > lastEventIdx) {
+            for (let i = lastEventIdx; i < data.events.length; i++) {
+                const msg = data.events[i];
+
+                let color = null;
+                if (msg.includes("joined")) color = "green";
+                if (msg.includes("left")) color = "red";
+                if (msg.includes("wants a rematch")) color = "cyan";
+
+                addLog(msg, color);
+            }
+            lastEventIdx = data.events.length;
+        }
+
         // RESTART DETECTION - Server says game is NOT over but we think it IS over (opponent restarted)
         if (data.gameOver === false && gameOver === true) {
             console.log("Game restarted detected! Opponent restarted the game.");
@@ -539,8 +551,6 @@ async function pollServer() {
             const popup = document.getElementById('restart-popup');
             if (popup) popup.remove();
             
-            showStatus("Opponent restarted the game! It's " + (currentTurn === "white" ? "White's" : "Black's") + " turn.");
-            addLog("Game restarted by opponent!", "#00bcd4");
             setTimeout(pollServer, 1500);
             return;
         }
@@ -550,12 +560,7 @@ async function pollServer() {
             gameOver = true;
             
             if (data.winner) {
-                showStatus(`${data.winner.toUpperCase()} wins!`);
                 updateWinLossCounts(data.winner);
-                addLog(`${data.winner.toUpperCase()} wins the game!`, "#f1c40f");
-            } else if (data.drawAccepted) {
-                showStatus("Game ended in a draw!");
-                addLog("Game ended in a draw!", "#f1c40f");
             }
             
             board.style.pointerEvents = "none";
@@ -642,7 +647,6 @@ async function pollServer() {
             const winner = currentTurn === "white" ? "Black" : "White";
             showStatus(`CHECKMATE! ${winner} wins!`);
             updateWinLossCounts(winner.toLowerCase());
-            addLog(`CHECKMATE! ${winner} wins!`, "#f1c40f");
             board.style.pointerEvents = "none";
             setTimeout(() => showRestartOption(), 2000);
             return;
@@ -977,8 +981,7 @@ function addLog(message, color = null) {
         entry.style.color = color;
     }
     
-    const timestamp = new Date().toLocaleTimeString();
-    entry.textContent = `[${timestamp}] ${message}`;
+    entry.textContent = message;
     logBody.prepend(entry); // Newest on top
     
     // Keep only last 50 entries
