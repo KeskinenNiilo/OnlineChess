@@ -388,24 +388,54 @@ function updateWinLossCounts(winner) {
 
 // call the server to create new room
 async function createRoom() {
+    const btn = document.getElementById('create-btn');
+    let originalText = "";
+
+    if(btn) {
+        originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "⌛ Waiting for server...";
+    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
     try {
-        const response = await fetch(`${API_URL}/create`, { method: 'POST' });
+        const response = await fetch(`${API_URL}/create`, {
+            method: 'POST',
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
 
         if(response.status === 429) {
             showStatus("⚠️ Too many requests!")
+            if(btn) {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            } 
             return;
         }
 
         if(!response.ok) {
-            showStatus("⚠️ Failed to create room.")
-            return;
+            throw new Error("Server starting up");
         }
         // Run setupGame with data from server.
         const data = await response.json();
+        if(btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
         setupGame(data.room, "white");
 
     } catch (err) {
-        showStatus("⚠️ Server unreachable.");
+        clearTimeout(timeoutId);
+
+        if (err.name === 'AbortError' || err.message.includes('Failed to fetch') || err.message === "Server starting up") {
+            showStatus("⌛ Server is waking up, this may take up to 60sec...");
+            setTimeout(createRoom, 5000);
+        } else {
+            showStatus("⚠️ Server unreachable.");
+        }
+        
     }
 }
 
