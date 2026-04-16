@@ -394,7 +394,7 @@ async function createRoom() {
     if(btn) {
         originalText = btn.textContent;
         btn.disabled = true;
-        btn.textContent = "⌛ Waiting for server...";
+        btn.textContent = "⌛Waiting server...";
     }
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
